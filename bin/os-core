@@ -1,0 +1,60 @@
+#!/bin/bash
+
+source /os/bin/colors
+
+check_say_service(){
+    session_name=$1
+
+    ## 杀死已挂起的
+    queries=`screen -ls ${session_name} | grep -Po "\K[0-9]+.os_miner(-queryA)+"`
+    if [[ ! -z $queries ]]; then
+        # 等待并再次查询以防止杀死活动查询
+        sleep 0.5
+        queries2=`screen -ls ${session_name} | grep -Po "\K[0-9]+.os_miner(-queryA)+"`
+        [[ "$queries" == "$queries2" ]] &&
+            echo "Killing hanged miners screen session queries" &&
+            pkill -f " -S ${session_name} "
+    fi
+    screen -wipe ${session_name} >/dev/null
+
+
+    ## 如果日志文件超过1分钟没有更新, 则结束现有的以便重新启动
+    session_log_path="/var/log/os/${session_name}.log"
+    mkdir -p /var/log/os/
+    local current_time=$(date +%s)
+    # 获取文件最后修改时间戳
+    local file_mod_time=$(stat -c %Y "$session_log_path")
+    # 计算文件最后修改时间与当前时间的差值（单位：秒）
+    local time_diff=$((current_time - file_mod_time))
+    if [[ $time_diff -gt 60 ]]
+    then
+        screen -S ${session_name} -X quit
+    fi
+
+
+    ## 判断是否要启动新的
+    is_running=$(screen -ls | grep ${session_name} | wc -l)
+    if [[ ${is_running} -eq 0 ]]; then
+        echoYellow "[say-hello] is not running, it will start…"
+
+        ## 启动一个空的会话
+        screen -S "${session_name}" -dm -c /os/etc/screenrc.miner
+
+        ## 删除过期日志
+        rm -f "${session_log_path}"
+
+        ## 启用日志功能
+        screen -S "${session_name}" -X logfile "${session_log_path}"
+        screen -S "${session_name}" -X log on
+
+        ## 启动命令
+        shell="while true; do /os/bin/${session_name}; sleep 10; done"
+        screen -S "${session_name}" -X screen bash -c "${shell}"
+    else
+        echoCyan "[${session_name}] is running"
+    fi
+}
+
+## 入口
+check_say_service say-hello
+check_say_service say-stats

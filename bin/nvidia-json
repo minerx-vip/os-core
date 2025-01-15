@@ -1,0 +1,119 @@
+#!/bin/bash
+
+mkdir -p /run/os/
+
+# 定义要查询的字段
+declare -A QUERY_FIELDS=(
+    ["name"]="name"
+    ["gpu_uuid"]="gpu_uuid"
+    ["pci_bus_id"]="pci.bus_id"
+    ["fan_speed"]="fan.speed"
+    ["temperature_gpu"]="temperature.gpu"
+    ["temperature_mem"]="temperature.memory"
+    ["power_default_limit"]="power.default_limit"
+    ["power_min_limit"]="power.min_limit"
+    ["power_max_limit"]="power.max_limit"
+    ["power_limit"]="power.limit"
+    ["power_draw"]="power.draw"
+    ["memory_total"]="memory.total"
+    ["memory_used"]="memory.used"
+    ["utilization_gpu"]="utilization.gpu"
+    ["utilization_memory"]="utilization.memory"
+    ["clocks_current_memory"]="clocks.current.memory"
+    ["clocks_max_memory"]="clocks.max.memory"
+    ["clocks_sm"]="clocks.sm"
+    ["clocks_mem"]="clocks.mem"
+)
+
+# 初始化 JSON 数组
+JSON_ARRAY="["
+
+# 检查是否存在 nvtool
+USE_NVTOOL=0
+if command -v nvtool >/dev/null 2>&1; then
+    USE_NVTOOL=1
+fi
+
+# 获取所有 GPU 的 ID 列表
+# 获取 Nvidia 显卡数量
+GPU_COUNT=$(/os/bin/gpu-count NVIDIA)
+if [[ ${GPU_COUNT} -eq 0 ]]; then
+    echo "[]"
+    exit 0
+fi
+
+# 遍历每个 GPU
+# for GPU_ID in $GPU_IDS; do
+GPU_ID=0
+while true
+do
+    # 初始化单个 GPU 的 JSON 对象
+    JSON_OBJECT="{"
+
+    # 遍历查询字段
+    for key in "${!QUERY_FIELDS[@]}"; do
+        # 查询对应的字段，失败时返回空字符串
+        value=$(nvidia-smi --id="$GPU_ID" --query-gpu=${QUERY_FIELDS[$key]} --format=csv,noheader,nounits 2>/dev/null | xargs || echo "")
+
+        # 如果字段没有值，则设为空字符串
+        value="${value:-""}"
+
+        # 拼接为 JSON 格式
+        JSON_OBJECT+="\"$key\":\"$value\","
+    done
+
+    # 获取 `busid`（用于查询 subvendor），失败时设为空字符串
+    busid=$(nvidia-smi --id="$GPU_ID" --query-gpu=pci.bus_id --format=csv,noheader,nounits 2>/dev/null | xargs || echo "")
+    busid="${busid:-""}"
+
+    # 获取 `subvendor`，失败时设为空字符串
+    subvendor=$(lspci -vmms "$busid" 2>/dev/null | grep -oP "SVendor:\s\K.*" || echo "")
+    subvendor="${subvendor:-""}"
+
+    # 添加 `subvendor` 到 JSON 对象
+    JSON_OBJECT+="\"subvendor\":\"$subvendor\","
+
+    # 如果存在 nvtool，则查询额外信息
+    if [[ $USE_NVTOOL -eq 1 ]]; then
+        # 提取 nvtool 信息
+        nvtool_output=$(/hive/sbin/nvtool --coreoffset --clocks --curpl 2>/dev/null | grep "DEVICE #$GPU_ID" -A 4)
+
+        gpu_clocks_offset=$(echo "$nvtool_output" | grep -oP "GPU CLOCKS OFFSET:\s+\K[^\s]+")
+        gpu_clocks_current=$(echo "$nvtool_output" | grep -oP "GPU CLOCKS CURRENT:\s+\K[^\s]+")
+        mem_clocks_current=$(echo "$nvtool_output" | grep -oP "MEM CLOCKS CURRENT:\s+\K[^\s]+")
+        power_limit_current=$(echo "$nvtool_output" | grep -oP "POWER LIMIT CURRENT:\s+\K[^\s]+")
+
+        # 默认值为空字符串
+        gpu_clocks_offset="${gpu_clocks_offset:-""}"
+        gpu_clocks_current="${gpu_clocks_current:-""}"
+        mem_clocks_current="${mem_clocks_current:-""}"
+        power_limit_current="${power_limit_current:-""}"
+
+        # 添加 nvtool 信息到 JSON 对象
+        JSON_OBJECT+="\"nvtool_gpu_clocks_offset\":\"$gpu_clocks_offset\","
+        JSON_OBJECT+="\"nvtool_gpu_clocks_current\":\"$gpu_clocks_current\","
+        JSON_OBJECT+="\"nvtool_mem_clocks_current\":\"$mem_clocks_current\","
+        JSON_OBJECT+="\"nvtool_power_limit_current\":\"$power_limit_current\","
+    fi
+
+    # 去掉多余的逗号并关闭 JSON 对象
+    JSON_OBJECT=${JSON_OBJECT%,}
+    JSON_OBJECT+="},"
+
+    # 添加到 JSON 数组
+    JSON_ARRAY+="$JSON_OBJECT"
+
+    ## 每次循环 GPU ID + 1
+    GPU_ID=$(expr $GPU_ID + 1)
+    ## 达到最大值后停止
+    [[ ${GPU_ID} -ge ${GPU_COUNT} ]] && break
+done
+
+# 去掉最后一个逗号并关闭 JSON 数组
+JSON_ARRAY=${JSON_ARRAY%,}
+JSON_ARRAY+="]"
+
+# 输出 JSON 数组格式
+echo "$JSON_ARRAY" > /run/os/nvidia-json
+echo "$JSON_ARRAY"
+

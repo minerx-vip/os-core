@@ -1,0 +1,24 @@
+#!/bin/bash
+
+CUSTOM_MINER=$1
+
+## 启动一个循环，持续启动
+while true; do
+
+    # 防止 Ctrl+C 杀死屏幕。仅第一次杀死矿工
+    trap 'echo ""' SIGINT
+
+    session_name="os_autorunning_${CUSTOM_MINER}"
+
+    queries=$(screen -ls | grep ${session_name} | wc -l)
+    if [[ ${queries} -eq 0 ]]
+    then
+        screen -dmS ${session_name} bash -c "while true; do bash /os/miners/custom/${CUSTOM_MINER}/AUTO_RUNNING.sh; done"
+    else
+        exit
+    fi
+
+    # 再次允许 Ctrl+C
+    trap - SIGINT
+done
+

@@ -1,0 +1,184 @@
+#!/bin/bash
+
+## 加载全局变量
+USE_GPUS=""
+export MINER_NAME=custom
+export MINER=custom
+unset CUDA_VISIBLE_DEVICES
+unset GPU_DEVICE_ORDINAL
+unset GPU_LEGACY_ORDINAL
+source /os/config/rig.conf
+source /os/bin/colors
+[[ -e /hive/bin/colors ]] && source /hive/bin/colors
+
+# ## 代理
+[[ ! -z ${http_proxy} ]] && export http_proxy=${http_proxy}
+[[ ! -z ${https_proxy} ]] && export https_proxy=${https_proxy}
+
+## 钱包配置文件
+wallet=$1
+[[ -z ${wallet} ]] && echoYellow "Configuration file not specified" && exit
+echo "wallet_conf = /os/wallet/${wallet}.conf"
+wallet_conf="/os/wallet/${wallet}.conf"
+[[ ! -f ${wallet_conf} ]] && echoYellow "${wallet_conf} file not found" && exit
+source ${wallet_conf}
+
+## 将 wallet_conf 中的部分变量设置为全局变量，供 h-run.sh 使用
+[[ ! -z ${CUSTOM_INSTALL_URL} ]] && export CUSTOM_INSTALL_URL=${CUSTOM_INSTALL_URL}
+[[ ! -z ${CUSTOM_ALGO} ]] && export CUSTOM_ALGO=${CUSTOM_ALGO}
+[[ ! -z ${CUSTOM_TEMPLATE} ]] && export CUSTOM_TEMPLATE=${CUSTOM_TEMPLATE}
+[[ ! -z ${CUSTOM_URL} ]] && export CUSTOM_URL=${CUSTOM_URL}
+
+session_name="os_miner_${wallet}"
+RUNNING_FLAG="/run/os/RUNNING_${session_name}"
+MINER_STOP="/run/os/STOP_${session_name}"
+MINER_DIR="/os/miners/custom"
+
+
+## MINER_NAME = custom
+MINER_DIR=/os/miners/${MINER_NAME}
+mkdir -p /os/miners/${MINER_NAME}   ## Add by 666666
+
+## + MINER_LOG_BASENAME=/var/log/miner/custom/custom
+MINER_LOG_BASENAME=/var/log/miner/$MINER_NAME/$MINER_NAME
+mkdir -p /var/log/miner/$MINER_NAME/   ## Add by 666666
+
+# Checks in target of symlink exists
+function mkfile_from_symlink() {
+	[[ -z $1 ]] && return 1
+	[[ ! -L $1 ]] && return 1 #not a symlink
+	[[ -e $1 ]] && return 0 #symlink point to existing file
+	local f=`readlink "$1"`
+	local d=`dirname "$f"`
+	[[ ! -d $d ]] && mkdir -p "$d" #&& echo "Creating $d"
+	touch $f #&& echo "Touching $f"
+	chown -R user "$d"
+}
+
+
+function rmfile_from_symlink() {
+	[[ -z $1 ]] && return 0 #does not exist
+	if [[ ! -L $1 ]]; then #not a symlink
+		rm $1
+		#echo "Deleting $1"
+		return 0
+	fi
+	local f=`readlink "$1"`
+	[[ -e $f ]] && rm $f #&& echo "Deleting $f" #symlink point to existing file
+}
+
+
+## 导出变量
+function miner_export_params() {
+
+    ## /os/miners/custom
+    cd $MINER_DIR
+
+    ## 结果：source /os/miners/custom/h-manifest.conf
+    ## 结果：source /os/miners/custom/h-config.sh
+    source $MINER_DIR/h-manifest.conf
+    source $MINER_DIR/h-config.sh
+
+    # exports needed by envsubst
+    declare -fF miner_fork > /dev/null && # if function exists
+        export MINER_FORK=`miner_fork` ||
+        export MINER_FORK=
+    export MINER_VER=`miner_ver`
+    export MINER_API_PORT
+    export MINER_LOG_BASENAME
+}
+
+
+run_miner(){
+    ## 只使用指定的显卡
+    if [[ ! -z ${USE_GPUS} ]]
+    then
+        export CUDA_VISIBLE_DEVICES=${USE_GPUS}
+        export GPU_DEVICE_ORDINAL=${USE_GPUS}
+        export GPU_LEGACY_ORDINAL=${USE_GPUS}
+    fi
+
+    miner_export_params
+    
+    miner_config_gen
+    source /os/miners/custom/h-run.sh
+}
+
+
+##########################################################################################
+## 判断是否存在 AUTO_RUNNING
+##########################################################################################
+auto_running(){
+    ## 检查脚本是否存在
+    local shell_path="/os/wallet/${wallet}_autorunning.sh"
+    if [[ ! -f ${shell_path} ]]; then
+        return
+    fi
+    
+    ## 检查是否正在运行
+    local count=$(ps -ef | grep ${shell_path} | grep -v grep | wc -l)
+    if [[ ${count} -gt 0 ]]
+    then
+        echo "The auto-running script is running"
+        return
+    fi
+
+    ## 如果是内部命令，则不继续
+    [[ ${IS_INTERNAL_EXEC} -eq 1 ]] && return
+
+    ## 执行
+    local session_name="autorunning_${wallet}"
+    screen -S ${session_name} -dm -c /os/etc/screenrc.miner bash
+    ## 设置日志文件路径
+    session_log_path="/var/log/os/${session_name}.log"
+    rm -f ${session_log_path}
+    screen -S ${session_name} -X logfile ${session_log_path}
+
+    ## 执行
+    screen -S ${session_name} -X screen -t ${wallet} 2 bash ${shell_path}
+
+    # 关闭 bash 窗口 #0
+    screen -S ${session_name} -p bash -X stuff 'exit\n'
+}
+
+
+##########################################################################################
+## 入口
+##########################################################################################
+auto_running
+## 记录启动时间和重启次数
+miner_start_ts=0
+restart_count=0
+
+## 启动一个循环，持续启动
+while true; do
+    # 如果矿工快速重启以保留旧日志，则不要轮换日志
+    [[ $(date +%s) -lt $(( miner_start_ts + MINER_LOG_MIN_TIME )) ]] &&
+        echo "${GRAY}Skipping miner log rotation due to execution time < ${MINER_LOG_MIN_TIME}sec${NOCOLOR}" ||
+        miner logrotate $MINER_NAME ## TODO
+
+    ## 记录 Miner 启动时间
+    miner_start_ts=$(date +%s)
+
+    # 防止 Ctrl+C 杀死屏幕。仅第一次杀死矿工
+    trap 'echo ""' SIGINT
+
+    # run miner, in subshell
+    ( run_miner )
+    exitcode=$?
+
+    # 如果矿工停止存在则退出循环
+    [[ ! -z $MINER_STOP && -f $MINER_STOP ]] && break
+
+    # 再次允许 Ctrl+C
+    trap - SIGINT
+
+    # TODO 如果第一分钟内重启次数大于 5，则将错误状态写入矿工状态文件
+    [[ $restart_count -gt 5 && $(date +%s) -lt $(( miner_start_ts + 60 )) && `cat ${MINER_STATUS}${miner_nom} | jq -r '.status'` == "running" ]] && echo '{"status":"error", "status_text":"Miner starting error"}' > ${MINER_STATUS}${miner_nom}
+
+    echo -e "\n${BYELLOW}$MINER_NAME${YELLOW} exited (exitcode=$exitcode), waiting to cooldown a bit${NOCOLOR}\n"
+    ((restart_count++))
+    sleep 3
+done
+
+exit $exitcode

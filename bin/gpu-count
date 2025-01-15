@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+
+
+source /os/etc/gpu.ids
+
+if [[ $1 == "AMD" ]]; then
+	lspci | grep -E "$GPU_DETECT_STRING" | grep "AMD" | grep -vE "$GPU_AMD_INTERNAL" | wc -l
+elif [[ $1 == "NVIDIA" ]]; then
+	lspci | grep -E "$GPU_DETECT_STRING" | grep "NVIDIA" | grep -vE "$GPU_NVIDIA_INTERNAL" | wc -l
+elif [[ $1 == "INTEL" ]]; then
+	lspci | grep -E "$GPU_DETECT_STRING" | grep "Intel" | grep -vE "$GPU_INTEL_INTERNAL" | wc -l
+else
+	#default, just grep
+	lspci | grep -E "($GPU_DETECT_STRING).*$1" | wc -l
+fi
+

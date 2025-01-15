@@ -1,0 +1,335 @@
+#!/usr/bin/env bash
+## 如果发现退出码为1则停止运行
+# # set -o errexit
+# set -e
+# ## 如果发现空的变量则停止运行
+# # set -o nounset
+# set -u
+
+##########################################################################################
+## 定义全局变量
+##########################################################################################
+rig_config="/os/config/rig.conf"
+
+## 检查是否存在配置文件并加载
+[[ ! -f ${rig_config} ]] && echo -e "No config $rig_config" && exit 1
+source ${rig_config}
+
+
+## 加载颜色文件
+source /os/bin/colors
+
+[[ -f /os/etc/VERSION ]] && source /os/etc/VERSION
+
+## 创建必要的文件夹
+mkdir -p /var/log/miner/custom/
+
+##########################################################################################
+## 检查参数
+##########################################################################################
+tag_debug=0     # 是否开启 Debug 模式
+for var in "$@"; do
+    case "$var" in
+        debug) tag_debug=1;;
+    esac
+done
+
+
+##########################################################################################
+## 基本信息获取
+##########################################################################################
+## 启动时间
+boot_time=$(( `date +%s` - `awk '{printf "%d", $1}' /proc/uptime` ))
+
+## IP 信息
+ips=( $(hostname -I) )
+ips_json=`printf '%s\n' "${ips[@]}" | jq -R . | jq -s -c .`
+net_interfaces=`ip -o link | grep -vE 'LOOPBACK|POINTOPOINT|sit0|can0|docker|sonm|ifb|veth' | sed 's/altname.*//' | awk '{  printf "{\"iface\": \"%s\", \"mac\": \"%s\"}\n", substr($2, 1, length($2)-1), $(NF-2)  }' | jq -sc .`
+lan_addresses=(`ip -o -f inet addr show | grep eth0 | awk '/scope global/ {print $4}'`)
+lan_gateway=`ip route | awk '/default/ && /eth0/ { print $3 }' | head -1`
+lan_dns=`grep -m1 ^nameserver /run/systemd/resolve/resolv.conf | awk '{print $2}'`
+lan_dhcp=1
+if [[ -f /etc/systemd/network/20-ethernet.network ]]
+then
+    grep -q '^DHCP=yes' /etc/systemd/network/20-ethernet.network && lan_dhcp=1 || lan_dhcp=0
+fi
+[[ $lan_dhcp == 1 ]] || lan_dhcp=0
+lan_config="{\"dhcp\": $lan_dhcp, \"address\": \"${lan_addresses[@]}\", \"gateway\": \"$lan_gateway\", \"dns\": \"$lan_dns\"}"
+
+
+## 系统主板信息
+system_uuid=`cat /sys/class/dmi/id/product_uuid 2>/dev/null` || system_uuid=$(dmidecode -s system-uuid)
+mb_product=`cat /sys/class/dmi/id/board_name 2>/dev/null`
+mb_manufacturer=`cat /sys/class/dmi/id/board_vendor 2>/dev/null`
+mb_bios=`cat /sys/class/dmi/id/bios_version 2>/dev/null`
+mb_bios_date=`cat /sys/class/dmi/id/bios_date 2>/dev/null` && mb_bios="$mb_bios $mb_bios_date"
+
+## CPU 信息
+cpu_model=`lscpu | grep "Model name:" | sed 's/Model name:[ \t]*//g'`
+cpu_cores=`lscpu | grep "^CPU(s):" | sed 's/CPU(s):[ \t]*//g'`
+aes=`lscpu | grep "^Flags:.*aes" | wc -l`
+cpu_id=`dmidecode -t 4 | grep ID | sed 's/.*ID://;s/ //g'`
+
+# ## 磁盘信息 - 性能问题，暂时屏蔽
+# if [[ ! -f /hive-config/.DISKLESS_AMD ]]; then
+#     bootpart=`readlink -f /dev/block/$(mountpoint -d /)`
+#     if [[ "$(echo $bootpart | grep -c nvme)" -gt 0 ]]; then
+#         bootdisk=${bootpart::-2} #cutoff partnumber
+#     else
+#         bootdisk=${bootpart::-1} #cutoff partnumber
+#     fi
+#     disk_info=`parted -mls 2>/dev/null | grep "/dev/"`
+#     # root disk first
+#     disk_model=`echo "$disk_info" | grep -m1 "$bootdisk:" | awk -F ':' '{print $7 " " $2}'`
+#     disk_model+=`echo "$disk_info" | grep -v "$bootdisk:" | awk -F ':' '{print ", " $7 " " $2}'`
+# else
+#     fsip=`cat /proc/cmdline | grep -o '\bhttproot=[^ ]*' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+'`
+#     disk_model="Diskless PXE from $fsip"
+# fi
+
+
+## 第一个网卡的 MAC 地址
+[[ -e /sys/class/net/eth0/address ]] &&
+	first_mac=`sed 's/://g' /sys/class/net/eth0/address` || #on some motherboards eth0 is disabled
+	first_mac=$(echo $net_interfaces | jq -r .[0].mac | sed 's/://g') #just grab the first in list
+
+## Ubuntu 版本
+distro_ver=$(lsb_release -rs)
+ubuntu_ver=$(echo $distro_ver | tr -d '.')
+
+## Kernel 信息
+kernel=$(uname --kernel-release )
+[[ $(echo $kernel | cut -f3 -d. | cut -f1 -d- ) == "0" ]] && kernel+=" $(uname --kernel-version | cut -f1 -d. )"
+
+# System pseudo unique number
+uid=$(echo ${system_uuid}-${cpu_id}-${first_mac} | tr '[:upper:]' '[:lower:]' | sha1sum | awk '{print $1}')
+
+## Nvidia 驱动版本
+if command -v nvidia-smi >/dev/null 2>&1; then
+    nvidia_version=$(nvidia-smi --help | head -n 1 | awk '{print $NF}' | sed 's/v//')
+else
+    nvidia_version=""
+fi
+
+## Hive 版本
+if command -v nvtool >/dev/null 2>&1; then
+    hive_version=$(dpkg -s hive | grep '^Version: ' | sed 's/Version: //' )
+else
+    hive_version=""
+fi
+
+
+## 显卡数量
+gpu_count_amd=`/os/bin/gpu-count AMD`
+gpu_count_nvidia=`/os/bin/gpu-count NVIDIA`
+gpu_count_intel=`/os/bin/gpu-count INTEL`
+
+## 获取 Nvidia 显卡列表
+gpus="[]"
+if [[ ${gpu_count_nvidia} -gt 0 ]]
+then
+    gpus=$(gpu-check listjson NVIDIA 2>&1)
+fi
+
+## 如果启用了自动禁用失败的显卡
+if [[ ${autoDisableFailedGpu} == "true" ]]; then
+    i=0
+    DISABLE_GPU=""
+    for vbios in $(echo "$gpus" | jq -r '.[].vbios'); do
+        if [[ ${vbios} == "MALFUNCTION" ]]; then
+            if [[ -z "$DISABLE_GPU" ]]; then
+                DISABLE_GPU="${i}"
+            else
+                DISABLE_GPU="${DISABLE_GPU},${i}"
+            fi
+            echo "失败的显卡: ${i}"
+        fi
+        i=$(expr $i + 1)
+    done
+fi
+[[ ${tag_debug} == 1 ]] && echo "DISABLE_GPU = ${DISABLE_GPU}"
+
+## 获取主机名
+if [[ -z ${worker_name} ]] || [[ ${worker_name} == "" ]]; then
+    worker_name=`hostname`
+fi
+
+##########################################################################################
+## 拼接发送请求
+##########################################################################################
+request=$(
+    jq -n \
+    --arg farm_hash "$farm_hash" \
+    --arg uid "$uid" \
+    --arg rig_name "$worker_name" \
+    --arg rig_id "$rig_id" \
+    --arg boot_time "$boot_time" \
+    --argjson ip "$ips_json" \
+    --argjson lan_config "$lan_config" \
+    --argjson net_interfaces "$net_interfaces" \
+    --arg gpu_count_amd "$gpu_count_amd" \
+    --arg gpu_count_nvidia "$gpu_count_nvidia" \
+    --arg gpu_count_intel "$gpu_count_intel" \
+    --argjson gpus "$gpus" \
+    --arg nvidia_version "$nvidia_version" \
+    --arg manufacturer "$mb_manufacturer" --arg product "$mb_product" --arg bios "$mb_bios" --arg system_uuid "$system_uuid" \
+    --arg model "$cpu_model" --arg cores "$cpu_cores" --arg aes "$aes" --arg cpu_id "$cpu_id" \
+    --arg disk_model "$disk_model" \
+    --arg distro_ver "$distro_ver" \
+    --arg kernel "$kernel" \
+    --arg hive_version "$hive_version" \
+    --arg os_version "$OS_VERSION" \
+    '
+    {
+        "method": "hello", "jsonrpc": "2.0", "id": 0,
+        "params": {
+            $farm_hash, $uid, $rig_name, $rig_id,
+            $boot_time, $ip, $lan_config, $net_interfaces,
+            $gpu_count_amd, $gpu_count_nvidia, $gpu_count_intel, $gpus,
+            "mb": {$manufacturer, $product, $system_uuid, $bios}, "cpu": {$model, $cores, $aes, $cpu_id}, $disk_model,
+             $distro_ver, $kernel, $hive_version, $nvidia_version, $os_version
+        }
+    }
+    '
+)
+[[ ${tag_debug} == 1 ]] && echo "Request: ${request}"
+
+
+##########################################################################################
+## 发送请求
+##########################################################################################
+## 直接发送 JSON 文本请求
+    # --connect-timeout 7 --max-time 15 --silent \
+api="${server_url}/myos/receive/receiveData"
+[[ ${tag_debug} == 1 ]] && echo "API = ${api}"
+response=`curl -X POST \
+    -H "Content-Type: application/json" \
+    --connect-timeout 7 --max-time 15 \
+    -d "$request" \
+    ${api}`
+
+
+# # 将 JSON 数据转换为 MessagePack 格式，并保存到临时文件
+# tmpfile=$(mktemp)
+# echo "$request" | json2msgpack -B 25 > $tmpfile
+#
+# # 使用 curl 发送 POST 请求，传输 MessagePack 格式数据
+# response=`curl -X POST \
+#     -H "Content-Type: application/x-msgpack" \
+#     --connect-timeout 7 --max-time 15 --silent \
+#     --data-binary @$tmpfile \
+#     http://110.249.214.76:30012/myos/receive/receiveData`
+#     # http://110.249.214.76:30013/receiveData`
+exitcode=$?
+# # 删除临时文件
+# rm -f $tmpfile
+
+[[ ${tag_debug} == 1 ]] && echo "状态码: ${exitcode} 返回值: $response"
+
+
+##########################################################################################
+# Wallet config
+##########################################################################################
+wallets_len=$(echo "$response" | jq '.result.wallet|length')
+## 删除现有钱包
+rm -f /os/wallet/*
+## 处理服务器返回数据
+for ((i=0; i<wallets_len; i++)); do
+    ## 钱包配置
+    item=$(echo "$response" | jq ".result.wallet[$i].FLIGHT_CONF")
+    ## 钱包名称
+    wallet_name=$(echo ${item} | jq --raw-output | grep 'CUSTOM_NAME' | awk -F '=' '{print $2}' | tr -d '\"')
+
+    ## 写入配置文件
+    wallet_config="/os/wallet/${wallet_name}.conf"
+    echo ${item} | jq '.' --raw-output > $wallet_config
+
+    ## 更新 USE_GPUS
+    unset USE_GPUS
+    source $wallet_config
+    if [[ ! -z ${DISABLE_GPU} ]] && [[ ${DISABLE_GPU} != "" ]] ; then
+        ## 如果 USE_GPUS 为空，就给他定义一个
+        if [[ -z ${USE_GPUS} ]] || [[ ${${USE_GPUS}} == "" ]] ;then
+            USE_GPUS=$(seq -s "," 0 $((gpu_count_nvidia - 1)))
+        fi
+
+        # 将 USE_GPUS 和 DISABLE_GPU 转换为数组
+        IFS=',' read -r -a use_gpus_array <<< "$USE_GPUS"
+        IFS=',' read -r -a disable_gpus_array <<< "$DISABLE_GPU"
+
+        # 创建一个新的数组来存储过滤后的 USE_GPUS
+        filtered_use_gpus=()
+
+        # 遍历 USE_GPUS 数组，检查它们是否在 DISABLE_GPU 数组中，如果不在则保留
+        for gpu in "${use_gpus_array[@]}"; do
+            if [[ ! " ${disable_gpus_array[@]} " =~ " ${gpu} " ]]; then
+                filtered_use_gpus+=("$gpu")
+            fi
+        done
+
+        # 将 filtered_use_gpus 数组转换回以逗号分隔的字符串，并删除数组中的空格
+        USE_GPUS=$(IFS=','; echo "${filtered_use_gpus[*]}")
+    fi
+    sed -i '/USE_GPUS/d' $wallet_config
+    echo "USE_GPUS=\"${USE_GPUS}\"" >> $wallet_config
+
+    # ## 超频参数
+    # oc_config_file="/run/os/${wallet_name}_oc.conf"
+    # OC_CONFIG=$(echo "$response" | jq ".result.wallet[$i].OC_CONFIG")
+    # if [[ -n "${OC_CONFIG}" && "${OC_CONFIG}" != "\"\"" ]]; then
+    #     # echo "OC_CONFIG 不为空，${OC_CONFIG}"
+    #     echo ${OC_CONFIG} | jq '.' --raw-output > $oc_config_file
+    # fi
+
+    # ## AUTO_RUNNING
+    # auto_running_file="/os/wallet/${wallet_name}_autorunning.sh"
+    # AUTO_RUNNING=$(echo "$response" | jq ".result.wallet[$i].AUTO_RUNNING")
+    # if [[ -n "${AUTO_RUNNING}" && "${AUTO_RUNNING}" != "\"\"" ]]; then
+    #     echo "AUTO_RUNNING 不是空，需要写入文件"
+    #     echo ${AUTO_RUNNING} | jq '.' --raw-output > $auto_running_file
+    # fi
+done
+
+
+
+##########################################################################################
+## rig.conf
+##########################################################################################
+config=`echo "$response" | jq '.result.config' --raw-output`
+if [[ -z "$config" || "$config" == "null" ]]; then
+    echoRed "no config field in response: ${config}"
+    exit 1
+fi
+
+
+# 写入配置并读取
+[[ -e $rig_config ]] && old_config=$(< $rig_config) || old_config=
+if [[ "$old_config" != "$config" ]]; then
+    echoYellow "Writing Rig config"
+    echo "$config" > $rig_config
+    source $rig_config
+fi
+
+
+## Hostname
+if [[ ! -z $worker_name ]]; then
+	hostname=$worker_name
+else
+	hostname=worker #fallback hostname
+fi
+[[ $hostname =~ ^([0-9]+).* ]] && hostname="hive$worker_name" #echo "${BASH_REMATCH[1]}"
+sed -i '/^127.0.0.1/d' /etc/hosts
+if ! grep -q "127.0.0.1 $hostname" "/etc/hosts"; then
+	printf "\n127.0.0.1 $hostname\n" >> /etc/hosts
+fi
+hostnamectl set-hostname "$hostname"
+
+
+## Timezone
+[[ ! -z $timezone ]] && timedatectl set-timezone "$timezone"
+
+
+##########################################################################################
+## Start || Stop Miner
+##########################################################################################
+## os auto

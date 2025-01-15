@@ -1,0 +1,307 @@
+#!/bin/bash
+
+
+## 加载全局变量
+IS_INTERNAL_EXEC=0  ## 程序是否为内部执行，0=false, 1=true
+source /os/config/rig.conf
+source /os/bin/colors
+export MINER_NAME=custom
+export MINER=custom
+[[ -e /hive/bin/colors ]] && source /hive/bin/colors
+STOP_TIMEOUT=15
+mkdir -p /run/os/
+mkdir -p /var/log/os/
+
+
+## 程序参数
+tag=$1
+wallet=${2:-}
+[[ -z ${tag} ]] && echoYellow "Please specify the operation type" && exit
+
+
+## 杀死已挂起的
+kill_hanged() {
+    queries=`screen -ls ${session_name} | grep -Po "\K[0-9]+.os_miner(-queryA)+"`
+    if [[ ! -z $queries ]]; then
+        # 等待并再次查询以防止杀死活动查询
+        sleep 0.5
+        queries2=`screen -ls ${session_name} | grep -Po "\K[0-9]+.os_miner(-queryA)+"`
+        [[ "$queries" == "$queries2" ]] &&
+            echo "Killing hanged miners screen session queries" &&
+            pkill -f " -S ${session_name} "
+    fi
+    screen -wipe ${session_name} >/dev/null
+}
+
+## 启动session_name="os_miner_${wallet}"
+start() {
+    source /os/wallet/${wallet}.conf
+    kill_hanged
+
+    session_name="os_miner_${wallet}"
+    RUNNING_FLAG="/run/os/RUNNING_${session_name}"
+    MINER_STOP="/run/os/STOP_${session_name}"
+
+    ## 是否处于暂停状态
+    local pause_file="/run/os/os_miner_${qubic_name}.pause"
+    if [[ -f ${pause_file} ]]; then
+        # 获取文件的最后修改时间（秒级时间戳）
+        last_modified=$(stat -c %Y "${pause_file}")
+        # 获取当前时间（秒级时间戳）
+        current_time=$(date +%s)
+        # 计算文件的修改时间与当前时间的差值
+        time_diff=$((current_time - last_modified))
+        # 判断是否超过 30 秒
+        if [ "$time_diff" -lt 10 ]; then
+            echo "文件的最后修改时间在 10 秒内"
+            return
+        fi
+    fi
+
+
+    ## 获取正在运行的 miner 会话数量
+    session_count=`screen -ls ${session_name} | grep -c ".${session_name}"`
+    ## 如果数量 > 0，提示已经在运行了
+    if [[ $session_count -gt 0 ]]; then
+        echo -e "${YELLOW}Miner screen is already running${NOCOLOR}"
+        echo -e "Run ${CYAN}screen -r ${session_name}${NOCOLOR} to resume screen"
+        return
+    fi
+
+    ##
+    [[ -f $RUNNING_FLAG ]] && rm $RUNNING_FLAG
+    [[ -f $MINER_STOP ]] && rm $MINER_STOP
+    ## linshi
+    # [[ -f /run/hive/cur_miner ]] && rm /run/hive/cur_miner
+
+    ## 如果 MINER 变量为空，则提示没有找到配置
+    if [[ -z $MINER ]]; then
+        ding warn "No miner is set" > /dev/null
+        echo -e "${YELLOW}No miner is set in config${NOCOLOR}"
+        exit 1
+    fi
+
+    ## linshi
+    # nvidia-oc delay >/dev/null
+
+    echo -en "Starting ${CYAN}$MINER${NOCOLOR}"
+
+    ## 将正在使用的钱包配置文件保存到 /run/os/
+    mkdir -p /run/os/
+    cp /os/wallet/${wallet}.conf /run/os/
+
+    ## 启动一个空的会话
+    screen -S ${session_name} -dm -c /os/etc/screenrc.miner bash
+
+    ## 设置日志文件路径
+    # MINER = custom
+    session_log_path="/var/log/os/${session_name}.log"
+    rm -f ${session_log_path}
+    screen -S ${session_name} -X logfile ${session_log_path}
+
+    shell="screen -S ${session_name} -X screen -t ${wallet} 2 os-run ${wallet}"
+    sleep 0.5
+    ${shell}
+
+    # 关闭 bash 窗口 #0
+    screen -S ${session_name} -p bash -X stuff 'exit\n'
+
+    return 0
+}
+
+stop() {
+    session_name="os_miner_${wallet}"
+    RUNNING_FLAG="/run/os/RUNNING_${session_name}"
+    MINER_STOP="/run/os/STOP_${session_name}"
+
+    [[ -f $RUNNING_FLAG ]] && rm $RUNNING_FLAG
+
+    kill_hanged
+
+    ## 查找所有 screen 窗口
+    screens=(`screen -ls ${session_name} | grep -Po "\K[0-9]+(?=\.${session_name})" | sort --unique`)
+
+    ## 数量结果等于 0，则提示没有 miner 在运行
+    if [[ ${#screens[@]} -eq 0 ]]; then
+        echo "No miner screens found"
+        return 1
+    fi
+
+    # prevent some miners from restarting in the loop
+    ## 防止重新启动
+    echo 1 > $MINER_STOP
+
+    [[ "${BASH_ARGV[0]}" =~ ^-?[0-9]+$ ]] && STOP_TIMEOUT="${BASH_REMATCH[0]}"
+    if [[ $STOP_TIMEOUT -ge 0 ]]; then
+        for pid in "${screens[@]}"; do
+            echo "Sending Ctrl+C to screen session $pid"
+            timeout 1 screen -S $pid.${session_name} -X at "#" stuff ^C
+        done
+        sleep 1
+        check=`screen -ls ${session_name}`
+        if [[ $? -eq 0 ]]; then
+            echo -n "Waiting ${STOP_TIMEOUT}s for miners to exit"
+            for (( i=1; i <= $STOP_TIMEOUT; i++ ))
+            do
+                echo -n ". "
+                sleep 1
+                check=`screen -ls ${session_name}`
+                [[ $? -ne 0 ]] && echo -n "Done" && break
+            done
+            echo ""
+        fi
+    fi
+
+    # quit them all
+    screens=(`screen -ls ${session_name} | grep -Po "\K[0-9]+(?=\.os_miner)" | sort --unique`)
+    for pid in "${screens[@]}"; do
+        echo "Stopping screen session $pid"
+        timeout 1 screen -S $pid.${session_name} -X quit
+    done
+
+    ## 删除矿工已停止的标志
+    [[ -f $MINER_STOP ]] && rm $MINER_STOP
+
+    ## 删除矿工运行状态文件
+    rm -f /run/os/${wallet}.conf
+
+    # 
+    # rm -f /run/hive/miner_status.*
+
+    # ## 停止显卡超频
+    # nvidia-oc stop >/dev/null
+
+    return 0
+}
+
+start_all(){
+    wallets=$(find /os/wallet/ -iname '*.conf')
+    [[ -z ${wallets} ]] && echoYellow "No miners in set" && exit
+
+    for wallet_path in ${wallets}
+    do
+        wallet=$(basename "${wallet_path}" .conf)
+        start
+    done
+}
+
+
+stop_all(){
+    running_wallets=$(screen -ls os_miner_ | grep os_miner | awk -F'.' '{print $2"."$3}' | awk '{print $1}' | awk -F '_' '{print $3}')
+    [[ -z ${running_wallets} ]] && echoYellow "No miners are running" && exit
+    for wallet in ${running_wallets}
+    do
+        # echoYellow "Stoping ${wallet}"
+        stop
+    done
+}
+
+status() {
+	kill_hanged
+
+    running_wallets=$(screen -ls os_miner_ | grep os_miner | awk -F'.' '{print $2"."$3}' | awk '{print $1}' | awk -F 'os_miner_' '{print $2}')
+    for wallet in ${running_wallets}
+    do
+        session_name="os_miner_${wallet}"
+	    screen -wipe ${session_name} >/dev/null
+    done
+
+    running_wallets=$(screen -ls os_miner_ | grep os_miner | awk -F'.' '{print $2"."$3}' | awk '{print $1}' | awk -F 'os_miner_' '{print $2}')
+    [[ -z ${running_wallets} ]] && echoYellow "No miners are running" && exit
+    echoYellow "Running miners in screen:"
+    for wallet in ${running_wallets}
+    do
+        session_name="os_miner_${wallet}"
+        echo "  ${wallet}"
+        # echo -e "Run ${CYAN}screen -r ${session_name}${NOCOLOR} to resume screen"
+    done
+}
+
+
+## 供 say-hello 使用
+auto(){
+    ## 如果配置文件被删除，则停止
+    running_wallets=$(screen -ls os_miner_ | grep os_miner | awk -F'.' '{print $2"."$3}' | awk '{print $1}' | awk -F 'os_miner_' '{print $2}')
+    for wallet in ${running_wallets}
+    do
+        wallet_path="/os/wallet/${wallet}.conf"
+        [[ ! -f ${wallet_path} ]] && echo "stop ${wallet}" && stop
+    done
+
+    ## 查找所有配置文件
+    wallets=$(find /os/wallet/ -iname '*.conf')
+    [[ -z ${wallets} ]] && echoYellow "No miners in set" && exit
+
+    ## 启动所有
+    for wallet_path in ${wallets}
+    do
+        wallet=$(basename "${wallet_path}" .conf)
+        conf_running_path="/run/os/${wallet}.conf"
+        ## 如果运行时文件有，则对比决定是否要重启
+        if [[ -f ${conf_running_path} ]]; then
+            ## 对比 wallet_path 和 conf_running_path 的文件内容，如果不一致，则重启
+            if ! diff -q "${wallet_path}" "${conf_running_path}" > /dev/null; then
+                echoCyan "Configuration file changed, restarting ${wallet}"
+                stop
+                start
+                sleep 0.5   ## 休眠以后，避免后续的 start 命令重复
+            fi
+        fi
+
+        ## 其他所有情况，启动 - 启动时候会判断是否已经在执行了
+        start
+    done
+}
+
+
+####################################################################################
+## 入口
+####################################################################################
+case ${tag} in
+    ## 启动 Miner ，需要指定 wallet 的配置文件名
+    start)
+        if [[ -z ${wallet} ]]
+        then
+            echoYellow "Please specify the Miner" && exit
+        else
+            wallet_conf="/os/wallet/${wallet}.conf"
+            [[ ! -f ${wallet_conf} ]] && echoYellow "${wallet_conf} file not found" && exit
+            start
+        fi
+    ;;
+    start_all)
+        start_all
+    ;;
+    start_internal)
+        export IS_INTERNAL_EXEC=1
+        start
+    ;;
+    ## 停止某个 Miner，需要指定 wallet 的配置文件名
+    stop)
+        if [[ -z ${wallet} ]]
+        then
+            echoYellow "Please specify the Miner" && exit
+        else
+            # wallet_conf="/os/wallet/${wallet}.conf"
+            # [[ ! -f ${wallet_conf} ]] && echoYellow "${wallet_conf} file not found" && exit
+            stop
+        fi
+    ;;
+    stop_all)
+        stop_all
+    ;;
+    stop_internal)
+        export IS_INTERNAL_EXEC=1
+        stop
+    ;;
+    restart)
+        stop_all
+        start_all
+    ;;
+    status)
+        status
+    ;;
+    auto)
+        auto
+    ;;
+esac

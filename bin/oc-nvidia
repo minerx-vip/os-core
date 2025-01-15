@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+# Usage: nvidia-oc delay|log|stop|reset|nocolor|quiet
+
+
+# 定义JSON文件路径
+JSON_FILE="/os/config/oc-nvidia.json"
+unset CUDA_VISIBLE_DEVICES
+NVML_TIMEOUT=10
+
+[[ -f /os/bin/colors ]] && source /os/bin/colors
+[[ -f /hive/bin/colors ]] && source /hive/bin/colors
+
+## 如果 GPU 数量为 0，退出
+n=`/os/bin/gpu-count NVIDIA`
+if [[ $n -eq 0 ]]; then
+	echo "No NVIDIA GPU detected"
+	exit 0
+fi
+
+# 检查文件是否存在
+if [ ! -f "$JSON_FILE" ]; then
+    echoRed "错误: $JSON_FILE 不存在"
+    exit 1
+fi
+
+## 获取 GPU 信息
+gpu_detect_json=`gpu-check listjson NVIDIA`
+
+## 应用超频
+apply_nvml() {
+    local args="$1"
+    local exitcode
+    local result
+    [[ -z "$args" ]] && return 0
+    shell="/hive/sbin/nvtool -q --nodev $args"
+    # echo "$shell"
+    result=`timeout --foreground -s9 $NVML_TIMEOUT $shell`
+    exitcode=$?
+    if [[ $exitcode -eq 0 ]]; then
+        [[ "$result" =~ "was already set" ]] && echo "$result" || echoGray "$result"
+    else
+        [[ ! -z "$result" ]] && echoRed "$result"
+        [[ $exitcode -ge 124 ]] && echoRed "nvtool failed by timeout (exitcode=$exitcode)"
+    fi
+    return $exitcode
+}
+
+## 处理JSON配置文件
+handle_oc_config() {
+    # 获取数组长度  
+    gpu_count=$(echo "$gpu_detect_json" | jq '. | length')
+    echoCyan "Detected $gpu_count NVIDIA cards"
+
+    # 遍历每个GPU的配置
+    for ((i=0; i<$gpu_count; i++)); do
+        # echo -e "\nGPU $i 的配置:"
+
+        name=$(echo "$gpu_detect_json" |jq -r ".[$i].name")
+        BUSID=$(echo "$gpu_detect_json" |jq -r ".[$i].pci_bus_id")
+        PLMIN=$(echo "$gpu_detect_json" |jq -r ".[$i].power_min_limit")
+        PLDEF=$(echo "$gpu_detect_json" |jq -r ".[$i].power_default_limit")
+        PLMAX=$(echo "$gpu_detect_json" |jq -r ".[$i].power_max_limit")
+        RAM=$(echo "$gpu_detect_json" |jq -r ".[$i].memory_total")
+        vbios=$(echo "$gpu_detect_json" |jq -r ".[$i].vbios")
+
+        ## 跳过有问题的显卡
+        [[ ${vbios} == "MALFUNCTION" ]] && continue
+
+        echo "${YELLOW}===${NOCOLOR} GPU ${CYAN}$i${NOCOLOR}, ${PURPLE}${BUSID} ${GREEN}$name ${WHITE}${RAM} MB${NOCOLOR}, PL: ${PLMIN}, ${PLDEF}, ${PLMAX} ${YELLOW}=== $(date +%T)${NOCOLOR}"
+        
+        # 获取所有键
+        keys=$(jq -r ".[$i] | keys[]" "$JSON_FILE")
+
+        # 遍历每个键并获取其值
+        while read -r key; do
+            value=$(jq -r ".[$i].$key" "$JSON_FILE")
+            # echo "  $key: $value"
+            
+            # 根据不同的键执行不同的操作
+            case "$key" in
+                "setcoreoffset")
+                    # 设置核心偏移
+                    apply_nvml "-i $i --setcoreoffset $value" || exitcode=$?
+                    ;;
+                "setclocks")
+                    # 设置时钟
+                    apply_nvml "-i $i --setclocks $value" || exitcode=$?
+                    ;;
+                "setmem")
+                    # 设置显存
+                    apply_nvml "-i $i --setmem $value" || exitcode=$?
+                    ;;
+                "setpl")
+                    # 设置功率限制
+                    apply_nvml "-i $i --setpl $value" || exitcode=$?
+                    ;;
+                "setfan")
+                    # 设置风扇速度
+                    apply_nvml "-i $i --setfan $value" || exitcode=$?
+                    ;;
+            esac
+        done <<< "$keys"
+    done
+}
+
+handle_oc_config

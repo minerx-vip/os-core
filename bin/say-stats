@@ -1,0 +1,190 @@
+#!/bin/bash
+
+##########################################################################################
+## 定义全局变量
+##########################################################################################
+rig_config="/os/config/rig.conf"
+source /os/bin/colors 
+
+##########################################################################################
+## 检查参数
+##########################################################################################
+tag_debug=0     # 是否开启 Debug 模式
+for var in "$@"; do
+    case "$var" in
+        debug) tag_debug=1;;
+    esac
+done
+
+## 检查是否存在配置文件并加载
+[[ ! -f ${rig_config} ]] && echo -e "No config $rig_config" && exit 1
+source ${rig_config}
+
+## 是否存在飞行表
+if ! ls /os/wallet/*.conf 1> /dev/null 2>&1; then
+    echo "No config miners"
+    exit 0
+fi
+
+## 超时时间
+[[ -z ${API_TIMEOUT} ]] && export API_TIMEOUT=15
+
+# Checks in target of symlink exists
+function mkfile_from_symlink() {
+    [[ -z $1 ]] && return 1
+    [[ ! -L $1 ]] && return 1 #not a symlink
+    [[ -e $1 ]] && return 0 #symlink point to existing file
+    local f=`readlink "$1"`
+    local d=`dirname "$f"`
+    [[ ! -d $d ]] && mkdir -p "$d" #&& echo "Creating $d"
+    touch $f #&& echo "Touching $f"
+    chown -R user "$d"
+}
+
+
+function rmfile_from_symlink() {
+    [[ -z $1 ]] && return 0 #does not exist
+    if [[ ! -L $1 ]]; then #not a symlink
+        rm $1
+        #echo "Deleting $1"
+        return 0
+    fi
+    local f=`readlink "$1"`
+    [[ -e $f ]] && rm $f #&& echo "Deleting $f" #symlink point to existing file
+}
+
+
+## 获取状态并推送到服务器
+stats(){
+    ## 查找所有配置文件
+    for wallet_filename in `ls /os/wallet/*.conf`
+    do
+        # 获取开始时间 - 用于计算程序耗时
+        start_time=$(date +%s)
+
+        ## 加载钱包文件
+        source ${wallet_filename}
+
+        ## 导出基本变量
+        export MINER_NAME=custom
+        export CUSTOM_NAME=${CUSTOM_MINER}
+        export MINER_LOG_BASENAME=/var/log/miner/$MINER_NAME/$CUSTOM_NAME
+        export MINER_DIR=/os/miners/$MINER_NAME/$CUSTOM_NAME
+
+        ## 取钱包文件名称
+        wallet=$(basename "${wallet_filename}" .conf)
+
+        ## 检查程序日志是有更新
+        # 获取当前时间戳
+        log_file="/var/log/os/os_miner_${wallet}.log"
+        local current_time=$(date +%s)
+
+        # 获取文件最后修改时间戳
+        local file_mod_time=$(stat -c %Y "$log_file")
+
+        # 计算文件最后修改时间与当前时间的差值（单位：秒）
+        local time_diff=$((current_time - file_mod_time))
+
+        # 判断文件是否超过 1 分钟（60秒）
+        if [[ $time_diff -gt 60 ]]
+        then
+            LOG_IDLE=0
+        else
+            LOG_IDLE=1
+        fi
+
+
+        ## 确定程序是否正在运行
+        session_name="os_miner_${wallet}"
+        session_count=`screen -ls ${session_name} | grep -c ".os_miner"`
+        if [[ ${session_count} -eq 0 ]]
+        then
+            IS_RUNNING=0
+        else
+            IS_RUNNING=1
+        fi
+
+        ## 确定是否有 h-stat.sh 文件
+        if [[ ! -e "${MINER_DIR}/h-stats.sh" ]]
+        then
+            echo "${MINER_DIR}/h-stats.sh 文件不存在"
+            STATS_FILE_EXISTS=0
+        else
+            STATS_FILE_EXISTS=1
+        fi
+
+        ## 如果没有问题则继续
+        cd $MINER_DIR
+        if [[ ${IS_RUNNING} -eq 1 ]] && [[ ${STATS_FILE_EXISTS} == 1 ]]
+        then
+            # source h-manifest.conf; source h-config.sh; source h-stats.sh;
+            if [[ ${wallet} == "qubminer" ]]
+            then
+              { source h-manifest.conf; source h-stats.sh; } 1>&2 # output to stderr
+            else
+                { source h-manifest.conf; source h-config.sh; source h-stats.sh; } 1>&2 # output to stderr
+            fi
+
+        fi
+
+       ## 获取结束时间 - 用于计算程序耗时
+       end_time=$(date +%s)
+       execution_time=$((end_time - start_time))
+
+        ## 一切没问题就上报
+        say_to_server
+    done
+}
+
+say_to_server(){
+    [[ -z "$khs" ]] && khs=0
+    [[ -z "$stats" ]] && stats="{}"
+
+    request=$(
+        jq -n \
+        --arg farm_hash "$farm_hash" \
+        --arg fs_name "$wallet" \
+        --arg rig_id "$rig_id" \
+        --arg execution_time "$execution_time" \
+        --arg log_idle "$LOG_IDLE" \
+        --arg is_running "$IS_RUNNING" \
+        --arg stats_file_exists $STATS_FILE_EXISTS \
+        --arg khs "$khs" \
+        --argjson stats "$stats" \
+        '
+        {
+            "method": "mining_stats", "jsonrpc": "2.0", "id": 0,
+            "params": {
+                $farm_hash, $rig_id, $fs_name,
+                $log_idle, $is_running, $stats_file_exists,
+                $execution_time,
+                $khs, $stats
+            }
+        }
+        '
+    )
+
+    api="${server_url}/myos/receive/receiveData"
+    response=`curl -X POST \
+        -H "Content-Type: application/json" \
+        --connect-timeout 7 --max-time 15 \
+        -d "$request" \
+        ${api}`
+
+    if [[ ${tag_debug} == 1 ]]
+    then
+        echoYellow_n "Say [${wallet}] Stats to server: "
+        echo "${api}"
+        echoYellow_n "khs ="
+        echo "${khs}"
+        echoYellow_n "stats = "
+        echo "${stats}"
+        echoYellow_n "request = "
+        echo "${request}"
+        echoYellow_n "response = "
+        echo "${response}"
+    fi
+}
+
+## 入口
+stats
