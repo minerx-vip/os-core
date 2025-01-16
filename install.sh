@@ -39,7 +39,7 @@ done
 
 if [[ ${user_gitee} == "true" ]]; then
     ## Get the latest version - Gitee
-    releases=$(curl -s https://gitee.com/api/v5/repos/xiaoliuxiao6/os/releases)
+    releases=$(curl -s https://gitee.com/api/v5/repos/minerx-vip/os-core/releases)
     VER=$(echo ${releases} | jq -r '.[-1].tag_name')
     FILENAME="os-${VER}.tar.gz"
     URL="https://gitee.com/minerx-vip/os-core/releases/download/${VER}/${FILENAME}"
