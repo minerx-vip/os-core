@@ -39,20 +39,21 @@ done
 
 if [[ ${user_gitee} == "true" ]]; then
     ## Get the latest version - Gitee
+    FILENAME="os-${VER}.tar.gz"
     releases=$(curl -s https://gitee.com/api/v5/repos/xiaoliuxiao6/os/releases)
     VER=$(echo ${releases} | jq -r '.[-1].tag_name')
     URL="https://gitee.com/minerx-vip/os-core/releases/download/${VER}/${FILENAME}"
 else
     ## Get the latest version - Github
+    FILENAME="os-${VER}.tar.gz"
     releases=$(curl -s https://api.github.com/repos/minerx-vip/os-core/releases/latest)
     VER=$(echo ${releases} | jq -r '.tag_name')
-    URL="https://github.com/minerx-vip/os-core/releases/download/${VER}/os-${VER}.tar.gz"
+    URL="https://github.com/minerx-vip/os-core/releases/download/${VER}/${FILENAME}"
 fi
-
 
 ## Download && Extract
 echoCyan "Latest version: ${VER}"
-FILENAME="os-${VER}.tar.gz"
+
 ARCHIVE="/tmp/${FILENAME}"
 sudo rm -f ${ARCHIVE}
 sudo wget -t 5 -T 20 -c "${URL}" -P /tmp/ || { echoYellow "Download failed!"; exit 1; }
