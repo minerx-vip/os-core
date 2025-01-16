@@ -154,6 +154,13 @@ if [[ -z ${worker_name} ]] || [[ ${worker_name} == "" ]]; then
     worker_name=`hostname`
 fi
 
+## 获取 CPU 使用率
+cpu_usage=$(top -bn1 | grep "Cpu(s)" | awk '{print 100 - $8}')
+
+## 获取 CPU 负载
+load_avg=$(awk '{print $1","$2","$3}' /proc/loadavg)
+
+
 ##########################################################################################
 ## 拼接发送请求
 ##########################################################################################
@@ -179,6 +186,8 @@ request=$(
     --arg kernel "$kernel" \
     --arg hive_version "$hive_version" \
     --arg os_version "$OS_VERSION" \
+    --arg cpu_usage "$cpu_usage" \
+    --arg load_avg "$load_avg" \
     '
     {
         "method": "hello", "jsonrpc": "2.0", "id": 0,
@@ -187,7 +196,8 @@ request=$(
             $boot_time, $ip, $lan_config, $net_interfaces,
             $gpu_count_amd, $gpu_count_nvidia, $gpu_count_intel, $gpus,
             "mb": {$manufacturer, $product, $system_uuid, $bios}, "cpu": {$model, $cores, $aes, $cpu_id}, $disk_model,
-             $distro_ver, $kernel, $hive_version, $nvidia_version, $os_version
+            $distro_ver, $kernel, $hive_version, $nvidia_version, $os_version,
+            $cpu_usage, $load_avg
         }
     }
     '
