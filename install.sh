@@ -41,7 +41,7 @@ if [[ ${user_gitee} == "" true ]]; then
     ## Get the latest version - Gitee
     releases=$(curl -s https://gitee.com/api/v5/repos/xiaoliuxiao6/os/releases)
     VER=$(echo ${releases} | jq -r '.[-1].tag_name')
-    URL="https://gitee.com/xiaoliuxiao6/os/releases/download/${VER}/${FILENAME}"
+    URL="https://gitee.com/minerx-vip/os-core/releases/download/${VER}/${FILENAME}"
 else
     ## Get the latest version - Github
     releases=$(curl -s https://api.github.com/repos/minerx-vip/os-core/releases/latest)
