@@ -37,7 +37,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 
-if [[ ${user_gitee} == "" true ]]; then
+if [[ ${user_gitee} == "true" ]]; then
     ## Get the latest version - Gitee
     releases=$(curl -s https://gitee.com/api/v5/repos/xiaoliuxiao6/os/releases)
     VER=$(echo ${releases} | jq -r '.[-1].tag_name')
