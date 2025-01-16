@@ -38,3 +38,5 @@ curl https://gitee.com/xiaoliuxiao6/os/raw/master/install.sh | bash
 os-update
 ```
 
+
+
