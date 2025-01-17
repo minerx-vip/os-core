@@ -11,7 +11,7 @@ echoCyan(){
 message=""
 farmid=""
 use_ip_as_hostname="false"
-user_gitee="false"
+use_gitee="false"
 
 
 ## 遍历参数
