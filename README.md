@@ -39,7 +39,7 @@ curl https://gitee.com/minerx-vip/os-core/raw/main/install.sh | bash -s -- --use
 ```sh
 ## 方式1
 curl https://raw.githubusercontent.com/minerx-vip/os-core/refs/heads/main/install.sh | bash
-curl https://gitee.com/minerx-vip/os-core/raw/main/install.sh | bash
+curl https://gitee.com/minerx-vip/os-core/raw/main/install.sh | bash -s -- --use_gitee
 
 ## 方式2
 os-update

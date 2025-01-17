@@ -34,7 +34,7 @@ apply_nvml() {
     result=`timeout --foreground -s9 $NVML_TIMEOUT $shell`
     exitcode=$?
     if [[ $exitcode -eq 0 ]]; then
-        [[ "$result" =~ "was already set" ]] && echo "$result" || echoGray "$result"
+        [[ "$result" =~ "was already set" ]] && echo "$result" || echoCyan "$result"
     else
         ## TODO: 超频失败，输出结果，是否要发送告警
         [[ ! -z "$result" ]] && echoRed "$result"
