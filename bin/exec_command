@@ -1,0 +1,35 @@
+#!/bin/bash
+
+
+command_id=$1
+command_str=$2
+log_file="/var/log/os/${command_id}.log"
+rm -f ${log_file}
+
+
+
+## Start Remote Shell
+if [[ ${command_str} == 'sshx' ]]; then
+    ## Exit the existing sshx
+    if screen -list | grep -q "\.os_sshx"; then
+        echo "Found screen session 'os_sshx'. Exiting it..."
+        screen -S os_sshx -X quit
+    fi
+
+    ## Start sshx
+    screen -dmL -Logfile ${log_file} -S os_sshx /os/bin/remote-sshx
+
+    ## Sending message to server
+    count=0
+    while (( count < 30 )); do
+        (( count++ ))
+
+        if [[ -f ${log_file} ]] && grep -q "Link:" "${log_file}"; then
+            /os/bin/say-message info --file=${log_file} --id=${command_id}
+            exit
+        fi
+
+        echo "Waiting for sshx to start successfully ${count}"
+        sleep 1
+    done
+fi

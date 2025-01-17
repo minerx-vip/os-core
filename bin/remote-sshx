@@ -1,0 +1,15 @@
+##!/bin/bash
+set -o errexit
+set -o nounset
+
+## Install
+if ! /usr/local/bin/sshx -V >/dev/null 2>&1; then
+    for i in {1..5}; do
+        curl -sSf https://sshx.io/get | sh && break
+        echo "Retry $i failed. Retrying in 5 seconds..."
+        sleep 5
+    done
+fi
+
+## Run
+/usr/local/bin/sshx
