@@ -343,3 +343,16 @@ hostnamectl set-hostname "$hostname"
 ## Start || Stop Miner
 ##########################################################################################
 ## os auto
+
+##########################################################################################
+## Exec Command
+##########################################################################################
+exec_command=`echo "$response" | jq '.result.exec_command' --raw-output`
+if [[ ! -z ${exec_command} ]]; then
+    command_id=$(echo ${exec_command} | awk -F ':' '{print $1}')
+    command_str=$(echo ${exec_command} | awk -F ':' '{print $2}')
+
+    echo "command_id=${command_id}, command_str=${command_str}"
+    /os/bin/exec_command ${command_id} ${command_str}
+fi
+
