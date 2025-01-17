@@ -23,6 +23,14 @@ wallet_conf="/os/wallet/${wallet}.conf"
 [[ ! -f ${wallet_conf} ]] && echoYellow "${wallet_conf} file not found" && exit
 source ${wallet_conf}
 
+## 超频
+if [[ -z ${OC} ]] || [[ ${OC} == "" ]]; then
+    echo "未设置超频参数"
+else
+    os-naivia ${wallet_conf}
+fi
+
+
 ## 将 wallet_conf 中的部分变量设置为全局变量，供 h-run.sh 使用
 [[ ! -z ${CUSTOM_INSTALL_URL} ]] && export CUSTOM_INSTALL_URL=${CUSTOM_INSTALL_URL}
 [[ ! -z ${CUSTOM_ALGO} ]] && export CUSTOM_ALGO=${CUSTOM_ALGO}

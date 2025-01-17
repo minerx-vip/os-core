@@ -21,8 +21,8 @@ while [[ $# -gt 0 ]]; do
             use_ip_as_hostname="true"
             shift
             ;;
-        --user_gitee)
-            user_gitee="true"
+        --use_gitee)
+            use_gitee="true"
             shift
             ;;
         --farmid)
@@ -37,7 +37,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 
-if [[ ${user_gitee} == "true" ]]; then
+if [[ ${use_gitee} == "true" ]]; then
     ## Get the latest version - Gitee
     releases=$(curl -s https://gitee.com/api/v5/repos/minerx-vip/os-core/releases)
     VER=$(echo ${releases} | jq -r '.[-1].tag_name')
