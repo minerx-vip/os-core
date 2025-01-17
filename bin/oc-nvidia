@@ -36,9 +36,9 @@ apply_nvml() {
     if [[ $exitcode -eq 0 ]]; then
         [[ "$result" =~ "was already set" ]] && echo "$result" || echoCyan "$result"
     else
-        ## TODO: 超频失败，输出结果，是否要发送告警
-        [[ ! -z "$result" ]] && echoRed "$result"
-        [[ $exitcode -ge 124 ]] && echoRed "nvtool failed by timeout (exitcode=$exitcode)"
+        ## 超频失败，输出结果 & 发送告警
+        [[ ! -z "$result" ]] && echoRed "$result" && say-message error "Failed to set ${args} using nvtool: $result"
+        [[ $exitcode -ge 124 ]] && echoRed "nvtool failed by timeout (exitcode=$exitcode)" && say-message error "nvtool failed by timeout (exitcode=$exitcode)"
     fi
     return $exitcode
 }
