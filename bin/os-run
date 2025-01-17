@@ -27,7 +27,7 @@ source ${wallet_conf}
 if [[ -z ${OC} ]] || [[ ${OC} == "" ]]; then
     echo "未设置超频参数"
 else
-    os-naivia ${wallet_conf}
+    oc-nvidia ${wallet_conf}
 fi
 
 
