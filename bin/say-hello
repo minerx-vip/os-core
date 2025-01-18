@@ -283,14 +283,6 @@ for ((i=0; i<wallets_len; i++)); do
     sed -i '/USE_GPUS/d' $wallet_config
     echo "USE_GPUS=\"${USE_GPUS}\"" >> $wallet_config
 
-    # ## 超频参数
-    # oc_config_file="/run/os/${wallet_name}_oc.conf"
-    # OC_CONFIG=$(echo "$response" | jq ".result.wallet[$i].OC_CONFIG")
-    # if [[ -n "${OC_CONFIG}" && "${OC_CONFIG}" != "\"\"" ]]; then
-    #     # echo "OC_CONFIG 不为空，${OC_CONFIG}"
-    #     echo ${OC_CONFIG} | jq '.' --raw-output > $oc_config_file
-    # fi
-
     # ## AUTO_RUNNING
     # auto_running_file="/os/wallet/${wallet_name}_autorunning.sh"
     # AUTO_RUNNING=$(echo "$response" | jq ".result.wallet[$i].AUTO_RUNNING")

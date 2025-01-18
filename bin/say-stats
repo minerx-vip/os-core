@@ -3,7 +3,6 @@
 ##########################################################################################
 ## 定义全局变量
 ##########################################################################################
-rig_config="/os/config/rig.conf"
 source /os/bin/colors 
 
 ##########################################################################################
@@ -124,7 +123,6 @@ stats(){
             else
                 { source h-manifest.conf; source h-config.sh; source h-stats.sh; } 1>&2 # output to stderr
             fi
-
         fi
 
        ## 获取结束时间 - 用于计算程序耗时
@@ -142,6 +140,7 @@ say_to_server(){
 
     request=$(
         jq -n \
+        --arg DIGITAL_CASH "$DIGITAL_CASH" \
         --arg farm_hash "$farm_hash" \
         --arg fs_name "$wallet" \
         --arg rig_id "$rig_id" \
@@ -155,7 +154,7 @@ say_to_server(){
         {
             "method": "mining_stats", "jsonrpc": "2.0", "id": 0,
             "params": {
-                $farm_hash, $rig_id, $fs_name,
+                $DIGITAL_CASH, $farm_hash, $rig_id, $fs_name,
                 $log_idle, $is_running, $stats_file_exists,
                 $execution_time,
                 $khs, $stats
@@ -175,7 +174,9 @@ say_to_server(){
     then
         echoYellow_n "Say [${wallet}] Stats to server: "
         echo "${api}"
-        echoYellow_n "khs ="
+        echoYellow_n "DIGITAL_CASH = "
+        echo "${DIGITAL_CASH}"
+        echoYellow_n "khs = "
         echo "${khs}"
         echoYellow_n "stats = "
         echo "${stats}"
