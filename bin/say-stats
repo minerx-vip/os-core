@@ -16,8 +16,9 @@ for var in "$@"; do
 done
 
 ## 检查是否存在配置文件并加载
-# [[ ! -f ${rig_config} ]] && echo -e "No config $rig_config" && exit 1
-# source ${rig_config}
+rig_config="/os/config/rig.conf"
+[[ ! -f ${rig_config} ]] && echo -e "No config $rig_config" && exit 1
+source ${rig_config}
 
 ## 是否存在飞行表
 if ! ls /os/wallet/*.conf 1> /dev/null 2>&1; then
