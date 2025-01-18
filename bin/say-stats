@@ -140,7 +140,7 @@ say_to_server(){
 
     request=$(
         jq -n \
-        --arg DIGITAL_CASH "$DIGITAL_CASH" \
+        --arg digital_cash "$DIGITAL_CASH" \
         --arg farm_hash "$farm_hash" \
         --arg fs_name "$wallet" \
         --arg rig_id "$rig_id" \
@@ -154,7 +154,7 @@ say_to_server(){
         {
             "method": "mining_stats", "jsonrpc": "2.0", "id": 0,
             "params": {
-                $DIGITAL_CASH, $farm_hash, $rig_id, $fs_name,
+                $digital_cash, $farm_hash, $rig_id, $fs_name,
                 $log_idle, $is_running, $stats_file_exists,
                 $execution_time,
                 $khs, $stats
