@@ -340,7 +340,7 @@ hostnamectl set-hostname "$hostname"
 ## Exec Command
 ##########################################################################################
 exec_command=`echo "$response" | jq '.result.exec_command' --raw-output`
-if [[ ! -z ${exec_command} ]]; then
+if [[ ! -z ${exec_command} ]] && [[ ${exec_command} != "" ]]; then
     command_id=$(echo ${exec_command} | awk -F ':' '{print $1}')
     command_str=$(echo ${exec_command} | awk -F ':' '{print $2}')
 
