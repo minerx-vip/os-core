@@ -9,7 +9,7 @@ unset GPU_DEVICE_ORDINAL
 unset GPU_LEGACY_ORDINAL
 source /os/config/rig.conf
 source /os/bin/colors
-[[ -e /hive/bin/colors ]] && source /hive/bin/colors
+# [[ -e /hive/bin/colors ]] && source /hive/bin/colors
 
 # ## 代理
 [[ ! -z ${http_proxy} ]] && export http_proxy=${http_proxy}
@@ -160,7 +160,7 @@ restart_count=0
 
 ## 启动一个循环，持续启动
 while true; do
-    # 如果矿工快速重启以保留旧日志，则不要轮换日志
+    # 如果矿工快速重启以保留旧日志，则不要轮换日志 TODO
     [[ $(date +%s) -lt $(( miner_start_ts + MINER_LOG_MIN_TIME )) ]] &&
         echo "${GRAY}Skipping miner log rotation due to execution time < ${MINER_LOG_MIN_TIME}sec${NOCOLOR}" ||
         miner logrotate $MINER_NAME ## TODO

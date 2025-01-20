@@ -334,7 +334,7 @@ if [[ ! -z $worker_name ]]; then
 else
 	hostname=worker #fallback hostname
 fi
-[[ $hostname =~ ^([0-9]+).* ]] && hostname="hive$worker_name" #echo "${BASH_REMATCH[1]}"
+[[ $hostname =~ ^([0-9]+).* ]] && hostname="miner$worker_name" #echo "${BASH_REMATCH[1]}"
 sed -i '/^127.0.0.1/d' /etc/hosts
 if ! grep -q "127.0.0.1 $hostname" "/etc/hosts"; then
 	printf "\n127.0.0.1 $hostname\n" >> /etc/hosts

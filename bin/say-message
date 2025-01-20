@@ -23,7 +23,7 @@ fi
 
 ## 加载颜色
 [[ -f /os/bin/colors ]] && source /os/bin/colors
-[[ -f /hive/bin/colors ]] && source /hive/bin/colors
+# [[ -f /hive/bin/colors ]] && source /hive/bin/colors
 
 ## 加载 rig.conf
 RIG_CONF="/os/config/rig.conf"

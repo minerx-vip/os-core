@@ -7,7 +7,7 @@ source /os/config/rig.conf
 source /os/bin/colors
 export MINER_NAME=custom
 export MINER=custom
-[[ -e /hive/bin/colors ]] && source /hive/bin/colors
+# [[ -e /hive/bin/colors ]] && source /hive/bin/colors
 STOP_TIMEOUT=15
 mkdir -p /run/os/
 mkdir -p /var/log/os/

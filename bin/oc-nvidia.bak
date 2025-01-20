@@ -8,7 +8,7 @@ unset CUDA_VISIBLE_DEVICES
 NVML_TIMEOUT=10
 
 [[ -f /os/bin/colors ]] && source /os/bin/colors
-[[ -f /hive/bin/colors ]] && source /hive/bin/colors
+# [[ -f /hive/bin/colors ]] && source /hive/bin/colors
 
 ## 如果 GPU 数量为 0，退出
 n=`/os/bin/gpu-count NVIDIA`

@@ -5,11 +5,11 @@ if [[ $# -lt 1 ]]; then
 	exit 1
 fi
 
-source colors
+source /os/bin/colors
 
 IGPU_FIRST=1
 
-source /hive/etc/gpu.ids
+source /os/etc/gpu.ids
 
 # Preventing from running nvidia tools if necessary
 [[ -f /run/hive/NV_OFF ]] && NV_OFF=1 || NV_OFF=0

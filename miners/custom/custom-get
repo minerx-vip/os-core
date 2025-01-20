@@ -4,7 +4,7 @@ MINER_DIR="/os/miners/custom"
 sudo mkdir -p ${MINER_DIR}/downloads
 cd $MINER_DIR
 
-. colors
+. /os/bin/colors
 
 if [[ $# -le 0 ]]; then
 	echo "Downloads and installs custom miner from a given URL"

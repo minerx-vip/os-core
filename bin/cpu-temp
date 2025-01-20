@@ -1,0 +1,64 @@
+#!/bin/bash
+
+source /os/bin/colors
+
+VERS="0.2.2"
+
+get_cpu_temp () {
+    for HWMON in $(ls /sys/class/hwmon); do
+        [[ -f /sys/class/hwmon/${HWMON}/name ]] &&
+            local test=$(cat /sys/class/hwmon/${HWMON}/name | grep -c -E 'coretemp|k10temp|k8temp')
+        if [[ $test -gt 0 ]]; then
+            HWMON_DIR=/sys/class/hwmon/$HWMON
+            break
+        fi
+    done
+    local inputs=()
+    local temp=
+    [[ ! -z $HWMON_DIR ]] && readarray -t inputs < <(ls $HWMON_DIR/temp*_input | sort -V)
+    [[ ${#inputs[@]} -eq 0 ]] && echo "null" && return 1
+    if [[ "$1" == "all" ]]; then
+        for input in ${inputs[@]}; do
+            local label=`cat ${input%_input}_label 2>/dev/null`
+            local value=`awk '{ printf("%f", $1/1000)}' $input 2>/dev/null`
+            printf "%15s: %.1f C\n" "${label:-n/a}" "${value:-n/a}"
+        done
+    else
+        local input=
+        [[ -z "$1" ]] && input=0
+        [[ "$1" =~ ^[0-9]+$ ]] && input=$1
+        [[ ! -z $input && ! -z ${inputs[input]} ]] && temp=`awk '{ printf("%.0f\n", $1/1000)}' ${inputs[input]} 2>/dev/null`
+        echo "${temp:-null}"
+    fi
+}
+
+
+print_help(){
+    echo -e "${CYAN}Cpu-temp Helper v$VERS"
+    echo -e "${WHITE}This tool shows CPU temp."
+    echo
+    echo -e "${YELLOW}Usage:"
+    echo -e "\t${CYAN}cpu-temp           ${LGRAY}- current CPU temp value"
+    echo -e "\t${CYAN}cpu-temp -a|--all  ${LGRAY}- all temp values"
+    echo
+    echo -e "${YELLOW}Other examples of usage:${NOCOLOR}"
+    echo -e "\t${CYAN}cpu-temp 1         ${LGRAY}- temp from sensor 1"
+    echo -e "\t${CYAN}cpu-temp -h        ${LGRAY}- print this help ${NOCOLOR}"
+}
+
+################################################################################
+# MAIN SCRIPT BODY
+################################################################################
+
+case "$1" in
+    -h|--help)
+        print_help
+        exit 0
+        ;;
+    -a|--all|all)
+        get_cpu_temp all
+        ;;
+    *)
+        get_cpu_temp "$1"
+        ;;
+esac
