@@ -164,7 +164,7 @@ say_to_server(){
         '
     )
 
-    api="${server_url}/myos/receive/receiveData"
+    api="${server_url}/worker/report"
     response=`curl -X POST \
         -H "Content-Type: application/json" \
         --connect-timeout 7 --max-time 15 \

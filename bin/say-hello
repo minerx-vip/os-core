@@ -210,7 +210,7 @@ request=$(
 ##########################################################################################
 ## 直接发送 JSON 文本请求
     # --connect-timeout 7 --max-time 15 --silent \
-api="${server_url}/myos/receive/receiveData"
+api="${server_url}/worker/report"
 [[ ${tag_debug} == 1 ]] && echo "API = ${api}"
 response=`curl -X POST \
     -H "Content-Type: application/json" \

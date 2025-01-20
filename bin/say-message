@@ -31,7 +31,7 @@ RIG_CONF="/os/config/rig.conf"
 source $RIG_CONF
 
 ## 定义 API 地址
-API="${server_url}/myos/receive/receiveData"
+API="${server_url}/worker/report"
 
 ## 解析参数
 for i in "$@"; do

@@ -69,7 +69,7 @@ if [[ -z ${farmid} ]]; then
     fi
 else
     echo "farm_hash=${farmid}" > /os/config/rig.conf
-    echo 'server_url="http://110.249.214.76:30012"' >> /os/config/rig.conf
+    echo 'server_url="https://vip.minerx.vip"' >> /os/config/rig.conf
 fi
 
 
