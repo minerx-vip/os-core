@@ -235,6 +235,22 @@ exitcode=$?
 
 [[ ${tag_debug} == 1 ]] && echo "状态码: ${exitcode} 返回值: $response"
 
+##########################################################################################
+## 处理错误
+##########################################################################################
+if [[ $exitcode -ne 0 ]]; then
+    echo "${RED}ERROR: connection to API server failed ($api)${NOCOLOR}"
+    echoRed "ERROR: connection to API server failed $api, $response" 
+fi
+
+##########################################################################################
+## write rig.conf
+##########################################################################################
+config=`echo "$response" | jq '.result.config' --raw-output`
+if [[ -z "$config" || "$config" == "null" ]]; then
+    echoRed "no config field in response: ${config}"
+    exit 1
+fi
 
 ##########################################################################################
 # Wallet config
@@ -294,16 +310,11 @@ done
 
 
 
-##########################################################################################
-## rig.conf
-##########################################################################################
-config=`echo "$response" | jq '.result.config' --raw-output`
-if [[ -z "$config" || "$config" == "null" ]]; then
-    echoRed "no config field in response: ${config}"
-    exit 1
-fi
 
 
+##########################################################################################
+## 处理 rig.conf
+##########################################################################################
 # 写入配置并读取
 [[ -e $rig_config ]] && old_config=$(< $rig_config) || old_config=
 if [[ "$old_config" != "$config" ]]; then
