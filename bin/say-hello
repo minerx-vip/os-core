@@ -228,8 +228,7 @@ response=`curl -X POST \
 #     -H "Content-Type: application/x-msgpack" \
 #     --connect-timeout 7 --max-time 15 --silent \
 #     --data-binary @$tmpfile \
-#     http://110.249.214.76:30012/myos/receive/receiveData`
-#     # http://110.249.214.76:30013/receiveData`
+#     http://127.0.0.1:30012/myos/receive/receiveData`
 exitcode=$?
 # # 删除临时文件
 # rm -f $tmpfile
@@ -242,7 +241,8 @@ exitcode=$?
 ##########################################################################################
 wallets_len=$(echo "$response" | jq '.result.wallet|length')
 ## 删除现有钱包
-rm -f /os/wallet/*
+[[ ${wallets_len} -gt 0 ]] && rm -f /os/wallet/*
+
 ## 处理服务器返回数据
 for ((i=0; i<wallets_len; i++)); do
     ## 钱包配置

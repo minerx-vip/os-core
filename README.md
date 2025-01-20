@@ -9,9 +9,9 @@
 默认使用当前主机名作为网页上显示的矿机名称
 
 ```sh
-curl https://raw.githubusercontent.com/minerx-vip/os-core/refs/heads/main/install.sh | bash -s -- --farm '<FARM_HASH>'
+curl https://raw.githubusercontent.com/minerx-vip/os-core/refs/heads/main/install.sh | bash -s -- --farmid '<FARM_HASH>'
 
-curl https://gitee.com/minerx-vip/os-core/raw/main/install.sh | bash -s -- --farm '<FARM_HASH>'
+curl https://gitee.com/minerx-vip/os-core/raw/main/install.sh | bash -s -- --farmid '<FARM_HASH>'
 ```
 
 
@@ -23,9 +23,9 @@ curl https://gitee.com/minerx-vip/os-core/raw/main/install.sh | bash -s -- --far
 适用于例如无盘环境，没有为每台机器设置主机名的情况下，使用 IP 地址的格式来标识每台主机
 
 ```sh
-curl https://raw.githubusercontent.com/minerx-vip/os-core/refs/heads/main/install.sh | bash -s -- --use_ip_as_hostname --farm '<FARM_HASH>'
+curl https://raw.githubusercontent.com/minerx-vip/os-core/refs/heads/main/install.sh | bash -s -- --use_ip_as_hostname --farmid '<FARM_HASH>'
 
-curl https://gitee.com/minerx-vip/os-core/raw/main/install.sh | bash -s -- --use_ip_as_hostname --farm '<FARM_HASH>'
+curl https://gitee.com/minerx-vip/os-core/raw/main/install.sh | bash -s -- --use_ip_as_hostname --farmid '<FARM_HASH>'
 
 
 ```
