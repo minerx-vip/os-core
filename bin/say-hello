@@ -163,6 +163,9 @@ load_avg=$(awk '{print $1","$2","$3}' /proc/loadavg)
 ## 获取时区
 timezone_cur=$(date +"%Z %z")
 
+## 获取 CPU 温度
+cpu_temp=$(/os/bin/cpu-temp)
+
 
 ##########################################################################################
 ## 拼接发送请求
@@ -192,6 +195,7 @@ request=$(
     --arg cpu_usage "$cpu_usage" \
     --arg load_avg "$load_avg" \
     --arg timezone "$timezone_cur" \
+    --arg cpu_temp "$cpu_temp" \
     '
     {
         "method": "hello", "jsonrpc": "2.0", "id": 0,
@@ -201,7 +205,7 @@ request=$(
             $gpu_count_amd, $gpu_count_nvidia, $gpu_count_intel, $gpus,
             "mb": {$manufacturer, $product, $system_uuid, $bios}, "cpu": {$model, $cores, $aes, $cpu_id}, $disk_model,
             $distro_ver, $kernel, $hive_version, $nvidia_version, $os_version,
-            $cpu_usage, $load_avg, $timezone
+            $cpu_usage, $load_avg, $timezone, $cpu_temp
         }
     }
     '
