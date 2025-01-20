@@ -161,7 +161,7 @@ cpu_usage=$(top -bn1 | grep "Cpu(s)" | awk '{print 100 - $8}')
 load_avg=$(awk '{print $1","$2","$3}' /proc/loadavg)
 
 ## 获取时区
-timezone=$(date +"%Z %z")
+timezone_cur=$(date +"%Z %z")
 
 
 ##########################################################################################
@@ -191,7 +191,7 @@ request=$(
     --arg os_version "$OS_VERSION" \
     --arg cpu_usage "$cpu_usage" \
     --arg load_avg "$load_avg" \
-    --arg timezone "$timezone" \
+    --arg timezone "$timezone_cur" \
     '
     {
         "method": "hello", "jsonrpc": "2.0", "id": 0,
