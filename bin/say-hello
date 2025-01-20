@@ -160,6 +160,9 @@ cpu_usage=$(top -bn1 | grep "Cpu(s)" | awk '{print 100 - $8}')
 ## 获取 CPU 负载
 load_avg=$(awk '{print $1","$2","$3}' /proc/loadavg)
 
+## 获取时区
+timezone=$(date +"%Z %z")
+
 
 ##########################################################################################
 ## 拼接发送请求
@@ -188,6 +191,7 @@ request=$(
     --arg os_version "$OS_VERSION" \
     --arg cpu_usage "$cpu_usage" \
     --arg load_avg "$load_avg" \
+    --arg timezone "$timezone" \
     '
     {
         "method": "hello", "jsonrpc": "2.0", "id": 0,
@@ -197,7 +201,7 @@ request=$(
             $gpu_count_amd, $gpu_count_nvidia, $gpu_count_intel, $gpus,
             "mb": {$manufacturer, $product, $system_uuid, $bios}, "cpu": {$model, $cores, $aes, $cpu_id}, $disk_model,
             $distro_ver, $kernel, $hive_version, $nvidia_version, $os_version,
-            $cpu_usage, $load_avg
+            $cpu_usage, $load_avg, $timezone
         }
     }
     '
