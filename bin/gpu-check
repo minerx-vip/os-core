@@ -147,10 +147,10 @@ if [[ "$1" == "list" || "$1" == "listjson" ]]; then
 				done < <( echo "$NVIDIA_DATA" | grep -v "^0;" )
 
 				if [[ ! -z "$msg" ]]; then
-					echo "$msg" >&2
+					# echo "$msg" >&2
 					say-message error "Nvidia GPU error" --payload=$msg > /dev/null
 				elif [[ $exitcode -ne 0 ]]; then
-					echo "nvtool error ($exitcode)" >&2
+					# echo "nvtool error ($exitcode)" >&2
 					say-message error "nvtool error ($exitcode)" --payload=$NVIDIA_DATA > /dev/null
 				fi
 			fi

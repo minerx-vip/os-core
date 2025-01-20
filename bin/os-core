@@ -1,6 +1,7 @@
 #!/bin/bash
 
 source /os/bin/colors
+mkdir -p /var/log/os/
 
 check_say_service(){
     session_name=$1
