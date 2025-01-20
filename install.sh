@@ -98,10 +98,10 @@ echo "export PATH=${NEW_PATH}:\$PATH" | sudo tee -a ${BASHRC_FILE} > /dev/null
 
 ## Install as a systemd service
 ## 临时注释
-sudo cp /os/service/os-service.service /etc/systemd/system/
+sudo cp /os/service/os-core.service /etc/systemd/system/
 sudo systemctl daemon-reload
-# sudo systemctl enable os-service.service
-# sudo systemctl stop os-service.service
-# sudo systemctl start os-service.service
+# sudo systemctl enable os-core.service
+# sudo systemctl stop os-core.service
+# sudo systemctl start os-core.service
 
 echoCyan "------------------------------------------------------------------ ${VER} Installation successful. ${message}"
