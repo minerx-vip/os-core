@@ -31,7 +31,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-VER=$(curl -s https://api.minerx.vip/VERSION)
+VER=$(curl -s https://down.minerx.vip/VERSION | awk -F= '{print $2}')
 FILENAME="os-${VER}.tar.gz"
 URL="https://down.minerx.vip/${FILENAME}"
 
