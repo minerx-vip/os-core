@@ -289,7 +289,7 @@ for ((i=0; i<wallets_len; i++)); do
     ## 钱包配置
     item=$(echo "$response" | jq ".result.wallet[$i].FLIGHT_CONF")
     ## 钱包名称
-    wallet_name=$(echo "$response" | jq ".result.wallet[$i].FLIGHT_NAME")
+    wallet_name=$(echo "$response" | jq -r ".result.wallet[$i].FLIGHT_NAME")
     # wallet_name=$(echo ${item} | jq --raw-output | grep 'CUSTOM_NAME' | awk -F '=' '{print $2}' | tr -d '\"')
 
     ## 写入配置文件
