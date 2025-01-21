@@ -221,7 +221,7 @@ request=$(
             "mb": {$manufacturer, $product, $system_uuid, $bios}, "cpu": {$model, $cores, $aes, $cpu_id}, $disk_model,
             $distro_ver, $kernel, $hive_version, $nvidia_version, $os_version,
             $cpu_usage, $load_avg, $timezone, $cpu_temp,
-            $mem_total, $mem_used, $mem_available,
+            $mem_total, $mem_used, $mem_available, 
             $swap_total, $swap_used, $swap_free
         }
     }
@@ -289,7 +289,8 @@ for ((i=0; i<wallets_len; i++)); do
     ## 钱包配置
     item=$(echo "$response" | jq ".result.wallet[$i].FLIGHT_CONF")
     ## 钱包名称
-    wallet_name=$(echo ${item} | jq --raw-output | grep 'CUSTOM_NAME' | awk -F '=' '{print $2}' | tr -d '\"')
+    wallet_name=$(echo "$response" | jq ".result.wallet[$i].FLIGHT_NAME")
+    # wallet_name=$(echo ${item} | jq --raw-output | grep 'CUSTOM_NAME' | awk -F '=' '{print $2}' | tr -d '\"')
 
     ## 写入配置文件
     wallet_config="/os/wallet/${wallet_name}.conf"
@@ -364,7 +365,7 @@ hostnamectl set-hostname "$hostname"
 
 
 ## Timezone
-[[ ! -z $timezone ]] && timedatectl set-timezone "$timezone"
+[[ ! -z $timezone ]] && [[ $timezone != "" ]] && timedatectl set-timezone "$timezone"
 
 
 ##########################################################################################
