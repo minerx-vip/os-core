@@ -11,6 +11,7 @@ echoCyan(){
 message=""
 farmid=""
 use_ip_as_hostname="false"
+use_gitee="false"
 
 
 ## 遍历参数
@@ -18,6 +19,10 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --use_ip_as_hostname)
             use_ip_as_hostname="true"
+            shift
+            ;;
+        --use_gitee)
+            use_gitee="true"
             shift
             ;;
         --farmid)
@@ -31,9 +36,20 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-VER=$(curl -s https://api.minerx.vip/VERSION)
-FILENAME="os-${VER}.tar.gz"
-URL="https://down.minerx.vip/${FILENAME}"
+
+if [[ ${use_gitee} == "true" ]]; then
+    ## Get the latest version - Gitee
+    releases=$(curl -s https://gitee.com/api/v5/repos/minerx-vip/os-core/releases)
+    VER=$(echo ${releases} | jq -r '.[-1].tag_name')
+    FILENAME="os-${VER}.tar.gz"
+    URL="https://gitee.com/minerx-vip/os-core/releases/download/${VER}/${FILENAME}"
+else
+    ## Get the latest version - Github
+    releases=$(curl -s https://api.github.com/repos/minerx-vip/os-core/releases/latest)
+    VER=$(echo ${releases} | jq -r '.tag_name')
+    FILENAME="os-${VER}.tar.gz"
+    URL="https://github.com/minerx-vip/os-core/releases/download/${VER}/${FILENAME}"
+fi
 
 ## Download && Extract
 echoCyan "Latest version: ${VER}"
