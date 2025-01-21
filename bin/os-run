@@ -24,7 +24,7 @@ wallet_conf="/os/wallet/${wallet}.conf"
 source ${wallet_conf}
 
 ## 超频
-if [[ -z ${OC} ]] || [[ ${OC} == "" ]]; then
+if [[ -z ${OC} ]] || [[ ${OC} == "" ]] || [[ ${OC} == "[]" ]]; then
     echo "未设置超频参数"
 else
     oc-nvidia ${wallet_conf}

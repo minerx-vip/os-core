@@ -76,11 +76,11 @@ handle_oc_config() {
         setfan=$(echo "$item" | jq '.setfan')
 
         # 执行操作
-        apply_nvml "-i $i --setcoreoffset $setcoreoffset" || exitcode=$?
-        apply_nvml "-i $i --setclocks $setclocks" || exitcode=$?
-        apply_nvml "-i $i --setmem $setmem" || exitcode=$?
-        apply_nvml "-i $i --setpl $setpl" || exitcode=$?
-        apply_nvml "-i $i --setfan $setfan" || exitcode=$?
+        [[ "$setcoreoffset" =~ ^[0-9]+$ ]] && apply_nvml "-i $i --setcoreoffset $setcoreoffset" || exitcode=$?
+        [[ "$setclocks" =~ ^[0-9]+$ ]] && apply_nvml "-i $i --setclocks $setclocks" || exitcode=$?
+        [[ "$setmem" =~ ^[0-9]+$ ]] && apply_nvml "-i $i --setmem $setmem" || exitcode=$?
+        [[ "$setpl" =~ ^[0-9]+$ ]] && apply_nvml "-i $i --setpl $setpl" || exitcode=$?
+        [[ "$setfan" =~ ^[0-9]+$ ]] && apply_nvml "-i $i --setfan $setfan" || exitcode=$?
     done
 }
 
