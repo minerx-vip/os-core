@@ -11,7 +11,7 @@ echoCyan(){
 message=""
 farmid=""
 use_ip_as_hostname="false"
-
+down_uri="https://minerx-download.oss-cn-shanghai.aliyuncs.com"
 
 ## 遍历参数
 while [[ $# -gt 0 ]]; do
@@ -31,9 +31,9 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-VER=$(curl -s https://down.minerx.vip/VERSION | awk -F= '{print $2}')
+VER=$(curl -s ${down_uri}/VERSION | awk -F= '{print $2}')
 FILENAME="os-${VER}.tar.gz"
-URL="https://down.minerx.vip/${FILENAME}"
+URL="${down_uri}/${FILENAME}"
 
 ## Download && Extract
 echoCyan "Latest version: ${VER}"
