@@ -1,12 +1,12 @@
 #!/bin/bash
 set -o errexit
 set -o nounset
-echoYellow(){
-    echo -e "\033[33m$*\033[0m"
-}
-echoCyan(){
-    echo -e "\033[36m$*\033[0m"
-}
+# echoYellow(){
+#     echo -e "\033[33m$*\033[0m"
+# }
+# echoCyan(){
+#     echo -e "\033[36m$*\033[0m"
+# }
 
 message=""
 farmid=""
@@ -36,19 +36,19 @@ FILENAME="os-${VER}.tar.gz"
 URL="https://down.minerx.vip/${FILENAME}"
 
 ## Download && Extract
-echoCyan "Latest version: ${VER}"
+echo "Latest version: ${VER}"
 
 ARCHIVE="/tmp/${FILENAME}"
 sudo rm -f ${ARCHIVE}
-sudo wget -t 5 -T 20 -c "${URL}" -P /tmp/ || { echoYellow "Download failed!"; exit 1; }
-sudo tar xzf ${ARCHIVE} -C / || { echoYellow "Install failed!"; exit 1; }
+sudo wget -t 5 -T 20 -c "${URL}" -P /tmp/ || { echo "Download failed!"; exit 1; }
+sudo tar xzf ${ARCHIVE} -C / || { echo "Install failed!"; exit 1; }
 
 
 ## If farmid is specified, perform an overwrite installation.
 RIG_CONFIG="/os/config/rig.conf"
 if [[ -z ${farmid} ]]; then
     if [[ ! -f ${RIG_CONFIG} ]]; then
-        echoYellow "Please specify farmid"
+        echo "Please specify farmid"
         exit 1
     fi
 else
@@ -88,4 +88,4 @@ sudo systemctl enable os-core.service
 sudo systemctl stop os-core.service
 sudo systemctl start os-core.service
 
-echoCyan "------------------------------------------------------------------ ${VER} Installation successful. ${message}"
+echo "------------------------------------------------------------------ ${VER} Installation successful. ${message}"
