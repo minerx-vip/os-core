@@ -134,7 +134,7 @@ if [[ "$1" == "list" || "$1" == "listjson" ]]; then
                 NVIDIA_DATA=`/hive/sbin/nvtool --quiet --csv --statuscode --status --busid --name --vbios --meminfo \
                                     --defpl --minmaxpl --fancount --memtype --uuid \
                                     --curpl --coreoffset --clocks \
-                                    --temp --fanspeed --power --usage --memtemp \
+                                    --temp --fanspeed --power --usage --memtemp --memoffset\
                                     --statuscode 2>&1`
 
 				exitcode=$?
