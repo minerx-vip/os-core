@@ -91,10 +91,8 @@ main() {
             if ((time_diff > time_tolerance)); then
                 echo "Time difference exceeds ${time_tolerance}s. Synchronizing..."
                 sync_time "$http_time"
-                exit 0
             else
                 echo "Time is within acceptable range. No synchronization needed."
-                exit 0
             fi
         fi
     done
