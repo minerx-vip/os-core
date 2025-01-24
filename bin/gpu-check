@@ -181,8 +181,8 @@ if [[ "$1" == "list" || "$1" == "listjson" ]]; then
 						--arg plim_min "$plim_min" --arg plim_def "$plim_def" --arg plim_max "$plim_max" \
                         --arg usedmem "$usedmem" --arg freemem "$freemem" \
                         --arg plim_cur "$plim_cur" --arg coreoffset_cur "$coreoffset_cur" --arg clocks_gpu_cur "$clocks_gpu_cur" --arg clocks_mem_cur "$clocks_mem_cur" \
-                        --arg temp "$temp" --arg fan_speed_cur "$fan_speed_cur" --arg power_cur "$power_cur" --arg cload "$cload" --arg mload "$mload" --arg mtemp "$mtemp" --arg memoffset "$memoffset" \
-						'{$busid, $name, $brand, $subvendor, $mem, $vbios, $mem_type, $uuid, $plim_min, $plim_def, $plim_max, $usedmem, $freemem, $plim_cur, $coreoffset_cur, $clocks_gpu_cur, $clocks_mem_cur, $temp, $fan_speed_cur, $power_cur, $cload, $mload, $mtemp, $memoffset}'`
+                        --arg temp "$temp" --arg fan_speed_cur "$fan_speed_cur" --arg power_cur "$power_cur" --arg cload "$cload" --arg mload "$mload" --arg mtemp "$mtemp" --arg memoffset_cur "$memoffset_cur" \
+						'{$busid, $name, $brand, $subvendor, $mem, $vbios, $mem_type, $uuid, $plim_min, $plim_def, $plim_max, $usedmem, $freemem, $plim_cur, $coreoffset_cur, $clocks_gpu_cur, $clocks_mem_cur, $temp, $fan_speed_cur, $power_cur, $cload, $mload, $mtemp, $memoffset_cur}'`
 
 					[[ ! -z $fan_cnt ]] && gpujson=`echo "$gpujson" | jq -c --arg fan_cnt "$fan_cnt" '. + {$fan_cnt}'`
 					gpus+=("$gpujson")
