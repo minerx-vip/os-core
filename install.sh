@@ -52,7 +52,7 @@ get_http_time() {
     http_time=$(curl -sI "$server" | grep -i "^date:" | awk '{for (i=2; i<=NF; i++) printf $i" "; print ""}' | xargs -I{} date -d "{}" +%s 2>/dev/null)
 
     if [[ -z "$http_time" ]]; then
-        log "Failed to fetch time from $server"
+        echo "Failed to fetch time from $server"
         return 1
     fi
 
@@ -64,9 +64,9 @@ get_http_time() {
 sync_time() {
     local http_time=$1
     if date -s "@$http_time" >/dev/null 2>&1; then
-        log "Successfully synced time to $(date '+%Y-%m-%d %H:%M:%S')"
+        echo "Successfully synced time to $(date '+%Y-%m-%d %H:%M:%S')"
     else
-        log "Failed to sync time"
+        echo "Failed to sync time"
     fi
 }
 
@@ -76,30 +76,30 @@ main() {
     local_time=$(date +%s)
 
     for server in "${servers[@]}"; do
-        log "Trying to fetch time from $server"
+        echo "Trying to fetch time from $server"
         http_time=$(get_http_time "$server")
 
         if [[ $? -eq 0 && -n "$http_time" ]]; then
             time_diff=$((local_time - http_time))
             time_diff=${time_diff#-} # 取绝对值
 
-            log "Local time: $(date -d "@$local_time" '+%Y-%m-%d %H:%M:%S')"
-            log "Server time: $(date -d "@$http_time" '+%Y-%m-%d %H:%M:%S')"
-            log "Time difference: ${time_diff}s"
+            echo "Local time: $(date -d "@$local_time" '+%Y-%m-%d %H:%M:%S')"
+            echo "Server time: $(date -d "@$http_time" '+%Y-%m-%d %H:%M:%S')"
+            echo "Time difference: ${time_diff}s"
 
             # 如果时间差超过允许范围，则同步时间
             if ((time_diff > time_tolerance)); then
-                log "Time difference exceeds ${time_tolerance}s. Synchronizing..."
+                echo "Time difference exceeds ${time_tolerance}s. Synchronizing..."
                 sync_time "$http_time"
                 exit 0
             else
-                log "Time is within acceptable range. No synchronization needed."
+                echo "Time is within acceptable range. No synchronization needed."
                 exit 0
             fi
         fi
     done
 
-    log "All servers failed to provide valid time. No synchronization performed."
+    echo "All servers failed to provide valid time. No synchronization performed."
 }
 main
 
