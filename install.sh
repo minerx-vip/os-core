@@ -31,6 +31,81 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+
+##################################################################
+## Sync Time
+##################################################################
+#!/bin/bash
+
+# 时间服务器列表
+servers=("http://www.apple.com" "http://www.baidu.com" "http://www.google.com")
+
+# 允许的时间差（秒）
+time_tolerance=5
+
+# 获取 HTTP 时间
+get_http_time() {
+    local server=$1
+    local http_time
+
+    # 获取 HTTP 响应的日期头信息并转换为时间戳
+    http_time=$(curl -sI "$server" | grep -i "^date:" | awk '{for (i=2; i<=NF; i++) printf $i" "; print ""}' | xargs -I{} date -d "{}" +%s 2>/dev/null)
+
+    if [[ -z "$http_time" ]]; then
+        log "Failed to fetch time from $server"
+        return 1
+    fi
+
+    echo "$http_time"
+    return 0
+}
+
+# 同步时间函数
+sync_time() {
+    local http_time=$1
+    if date -s "@$http_time" >/dev/null 2>&1; then
+        log "Successfully synced time to $(date '+%Y-%m-%d %H:%M:%S')"
+    else
+        log "Failed to sync time"
+    fi
+}
+
+# 主函数
+main() {
+    # 获取本地时间戳
+    local_time=$(date +%s)
+
+    for server in "${servers[@]}"; do
+        log "Trying to fetch time from $server"
+        http_time=$(get_http_time "$server")
+
+        if [[ $? -eq 0 && -n "$http_time" ]]; then
+            time_diff=$((local_time - http_time))
+            time_diff=${time_diff#-} # 取绝对值
+
+            log "Local time: $(date -d "@$local_time" '+%Y-%m-%d %H:%M:%S')"
+            log "Server time: $(date -d "@$http_time" '+%Y-%m-%d %H:%M:%S')"
+            log "Time difference: ${time_diff}s"
+
+            # 如果时间差超过允许范围，则同步时间
+            if ((time_diff > time_tolerance)); then
+                log "Time difference exceeds ${time_tolerance}s. Synchronizing..."
+                sync_time "$http_time"
+                exit 0
+            else
+                log "Time is within acceptable range. No synchronization needed."
+                exit 0
+            fi
+        fi
+    done
+
+    log "All servers failed to provide valid time. No synchronization performed."
+}
+main
+
+##################################################################
+## Install
+##################################################################
 VER=$(curl -s ${down_uri}/VERSION | awk -F= '{print $2}')
 FILENAME="os-${VER}.tar.gz"
 URL="${down_uri}/${FILENAME}"
@@ -81,7 +156,6 @@ echo "export PATH=${NEW_PATH}:\$PATH" | sudo tee -a ${BASHRC_FILE} > /dev/null
 
 
 ## Install as a systemd service
-## 临时注释
 sudo cp /os/service/os-core.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable os-core.service
