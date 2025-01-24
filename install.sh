@@ -83,9 +83,9 @@ main() {
             time_diff=$((local_time - http_time))
             time_diff=${time_diff#-} # 取绝对值
 
-            echo "Local time: $(date -d "@$local_time" '+%Y-%m-%d %H:%M:%S')"
-            echo "Server time: $(date -d "@$http_time" '+%Y-%m-%d %H:%M:%S')"
-            echo "Time difference: ${time_diff}s"
+            # echo "Local time: $(date -d "@$local_time" '+%Y-%m-%d %H:%M:%S')"
+            # echo "Server time: $(date -d "@$http_time" '+%Y-%m-%d %H:%M:%S')"
+            # echo "Time difference: ${time_diff}s"
 
             # 如果时间差超过允许范围，则同步时间
             if ((time_diff > time_tolerance)); then
@@ -93,6 +93,7 @@ main() {
                 sync_time "$http_time"
             else
                 echo "Time is within acceptable range. No synchronization needed."
+                break
             fi
         fi
     done
