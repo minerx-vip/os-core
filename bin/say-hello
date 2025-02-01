@@ -47,7 +47,11 @@ ips_json=`printf '%s\n' "${ips[@]}" | jq -R . | jq -s -c .`
 net_interfaces=`ip -o link | grep -vE 'LOOPBACK|POINTOPOINT|sit0|can0|docker|sonm|ifb|veth' | sed 's/altname.*//' | awk '{  printf "{\"iface\": \"%s\", \"mac\": \"%s\"}\n", substr($2, 1, length($2)-1), $(NF-2)  }' | jq -sc .`
 lan_addresses=(`ip -o -f inet addr show | grep eth0 | awk '/scope global/ {print $4}'`)
 lan_gateway=`ip route | awk '/default/ && /eth0/ { print $3 }' | head -1`
-lan_dns=`grep -m1 ^nameserver /run/systemd/resolve/resolv.conf | awk '{print $2}'`
+
+lan_dns=""
+[[ -f /etc/resolv.conf ]] && lan_dns=`grep -m1 ^nameserver /etc/resolv.conf | awk '{print $2}'`
+[[ -f /run/systemd/resolve/resolv.conf ]] && lan_dns=`grep -m1 ^nameserver /run/systemd/resolve/resolv.conf | awk '{print $2}'`
+
 lan_dhcp=1
 if [[ -f /etc/systemd/network/20-ethernet.network ]]
 then

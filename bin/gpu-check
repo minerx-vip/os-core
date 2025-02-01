@@ -126,6 +126,14 @@ if [[ "$1" == "list" || "$1" == "listjson" ]]; then
 			fi
 
 		elif [[ $gputype == "NVIDIA" ]]; then
+			## TODO 如果没有 nvtool 命令,则跳过
+			## 这里需要做兼容
+			if ! command -v nvtool &>/dev/null; then
+				# echo "WARNING: nvtool not found, skipping GPU check" >&2
+				continue
+			fi
+
+			## 否则继续
 			if [[ -z "$NVIDIA_DATA" && $NV_OFF -eq 0 ]]; then
 				# 0;Success;00000000:05:00.0;P104-100;86.04.7A.00.19;8121;4125;3996;180.0;90.0;217.0;1;Micron GDDR5X;
                 ## Change 666666
