@@ -35,13 +35,13 @@ function miner_config_gen() {
 		DETECTED_CUSTOM_MINER=`echo "$basename" | sed 's/'-$version'$//'`
 		if [[ $CUSTOM_MINER != $DETECTED_CUSTOM_MINER ]]; then
 			echo -e "${RED}Custom miner name should be \"$DETECTED_CUSTOM_MINER\"${NOCOLOR}"
-			ding error "Custom miner name should be \"$DETECTED_CUSTOM_MINER\", \"$CUSTOM_MINER\" is wrong"
+			say-message error "Custom miner name should be \"$DETECTED_CUSTOM_MINER\", \"$CUSTOM_MINER\" is wrong"
 			exit 1
 		fi
 		# Installation attempt
 		$MINER_DIR/custom-get "$CUSTOM_INSTALL_URL"
 		if [[ $? -ne 0 ]]; then
-			ding error "Unable to install miner from $CUSTOM_INSTALL_URL"
+			say-message error "Unable to install miner from $CUSTOM_INSTALL_URL"
 			exit 1
 		fi
 		echo

@@ -76,7 +76,7 @@ start() {
 
     ## 如果 MINER 变量为空，则提示没有找到配置
     if [[ -z $MINER ]]; then
-        ding warn "No miner is set" > /dev/null
+        say-message warn "No miner is set" > /dev/null
         echo -e "${YELLOW}No miner is set in config${NOCOLOR}"
         exit 1
     fi
