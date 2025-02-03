@@ -386,8 +386,8 @@ hostnamectl set-hostname "$hostname"
 ##########################################################################################
 exec_command=`echo "$response" | jq '.result.exec_command' --raw-output`
 if [[ ! -z ${exec_command} ]] && [[ ${exec_command} != "" ]]; then
-    command_id=$(echo ${exec_command} | awk -F ':' '{print $1}')
-    command_str=$(echo ${exec_command} | awk -F ':' '{print $2}')
+    command_id=$(echo ${exec_command} | jq -r '.command_id')
+    command_str=$(echo ${exec_command} | jq -r '.command_str')
 
     echo "command_id=${command_id}, command_str=${command_str}"
     /os/bin/exec_command ${command_id} ${command_str}
