@@ -20,8 +20,16 @@ if [[ $n -eq 0 ]]; then
 fi
 
 
+## 判断是否有 nvtool 命令，如果没有则跳过某些参数的设置
+if ! command -v nvtool &>/dev/null; then
+    echoYellow "nvtool not found, skipping setting GPU $i sommething"
+    echo
+fi
+
+
 ## 获取 GPU 信息
 gpu_detect_json=`gpu-check listjson NVIDIA`
+
 
 ## 应用超频
 apply_nvml() {
@@ -43,6 +51,26 @@ apply_nvml() {
     return $exitcode
 }
 
+## 使用 nvidia-smi 超频
+apply_nvidia_smi() {
+    local args="$1"
+    local exitcode
+    local result
+    [[ -z "$args" ]] && return 0
+    shell="/usr/bin/nvidia-smi $args"
+    # echo "$shell"
+    result=`timeout --foreground -s9 $NVML_TIMEOUT $shell`
+    exitcode=$?
+    if [[ $exitcode -eq 0 ]]; then
+        [[ "$result" =~ "All done" ]] && echo "$result" || echoCyan "$result"
+    else
+        ## 超频失败，输出结果 & 发送告警
+        [[ ! -z "$result" ]] && echoRed "$result" && say-message error "Failed to apply NVIDIA OC: $result"
+        [[ $exitcode -ge 124 ]] && echoRed "nvidia-smi failed by timeout (exitcode=$exitcode)" && say-message error "nvidia-smi failed by timeout (exitcode=$exitcode)"
+    fi
+    return $exitcode
+}
+
 ## 处理JSON配置文件
 handle_oc_config() {
     # 获取数组长度  
@@ -55,7 +83,7 @@ handle_oc_config() {
         ## 处理 USE_GPUS
         if [[ ! -z ${USE_GPUS} ]] && [[ ${USE_GPUS} != "" ]]; then
             if [[ ! ${USE_GPUS} =~ $i ]]; then
-                echo "GPU $i is not in USE_GPUS, skipping"
+                echoYellow "GPU $i is not in USE_GPUS, skipping"
                 continue
             fi
         fi
@@ -82,12 +110,22 @@ handle_oc_config() {
         setpl=$(echo "$item" | jq -r '.setpl')
         setfan=$(echo "$item" | jq -r '.setfan')
 
-        # 执行操作
-        [[ "$setcoreoffset" =~ ^[0-9]+$ ]] && apply_nvml "-i $i --setcoreoffset $setcoreoffset" || exitcode=$?
-        [[ "$setclocks" =~ ^[0-9]+$ ]] && apply_nvml "-i $i --setclocks $setclocks" || exitcode=$?
-        [[ "$setmem" =~ ^[0-9]+$ ]] && apply_nvml "-i $i --setmem $setmem" || exitcode=$?
-        [[ "$setpl" =~ ^[0-9]+$ ]] && apply_nvml "-i $i --setpl $setpl" || exitcode=$?
-        [[ "$setfan" =~ ^[0-9]+$ ]] && apply_nvml "-i $i --setfan $setfan" || exitcode=$?
+        ## 判断是否有 nvtool 命令，如果没有则跳过某些参数的设置
+        if command -v nvtool1 &>/dev/null; then
+            # 执行操作
+            [[ "$setcoreoffset" =~ ^[0-9]+$ ]] && apply_nvml "-i $i --setcoreoffset $setcoreoffset" || exitcode=$?
+            [[ "$setclocks" =~ ^[0-9]+$ ]] && apply_nvml "-i $i --setclocks $setclocks" || exitcode=$?
+            [[ "$setmem" =~ ^[0-9]+$ ]] && apply_nvml "-i $i --setmem $setmem" || exitcode=$?
+            [[ "$setpl" =~ ^[0-9]+$ ]] && apply_nvml "-i $i --setpl $setpl" || exitcode=$?
+            [[ "$setfan" =~ ^[0-9]+$ ]] && apply_nvml "-i $i --setfan $setfan" || exitcode=$?
+        else
+            ## 设置功率
+            if (( $(echo "$setpl > $PLMAX" | bc -l) )) || (( $(echo "$setpl < $PLMIN" | bc -l) )); then
+                setpl=${PLDEF}
+                # [[ "$setpl" =~ ^[0-9]+$ ]] && 
+                apply_nvidia_smi "-i $i -pl ${setpl}" || exitcode=$?
+            fi
+        fi
     done
 }
 
