@@ -21,14 +21,14 @@ fi
 
 
 ## 判断是否有 nvtool 命令，如果没有则跳过某些参数的设置
-if ! command -v nvtool &>/dev/null; then
+if command -v nvtool &>/dev/null; then
+    ## 获取 GPU 信息
+    gpu_detect_json=`gpu-check listjson NVIDIA`
+else
     echoYellow "nvtool not found, skipping setting GPU $i sommething"
     echo
+    gpu_detect_json=$(nvidia-json)
 fi
-
-
-## 获取 GPU 信息
-gpu_detect_json=`gpu-check listjson NVIDIA`
 
 
 ## 应用超频
@@ -111,7 +111,7 @@ handle_oc_config() {
         setfan=$(echo "$item" | jq -r '.setfan')
 
         ## 判断是否有 nvtool 命令，如果没有则跳过某些参数的设置
-        if command -v nvtool1 &>/dev/null; then
+        if command -v nvtool &>/dev/null; then
             # 执行操作
             [[ "$setcoreoffset" =~ ^[0-9]+$ ]] && apply_nvml "-i $i --setcoreoffset $setcoreoffset" || exitcode=$?
             [[ "$setclocks" =~ ^[0-9]+$ ]] && apply_nvml "-i $i --setclocks $setclocks" || exitcode=$?
