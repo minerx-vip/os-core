@@ -130,9 +130,13 @@ gpu_count_intel=`/os/bin/gpu-count INTEL`
 
 ## 获取 Nvidia 显卡列表
 gpus="[]"
-if [[ ${gpu_count_nvidia} -gt 0 ]]
-then
-    gpus=$(gpu-check listjson NVIDIA 2>&1)
+if [[ ${gpu_count_nvidia} -gt 0 ]]; then
+    ## Hive 版本
+    if command -v nvtool >/dev/null 2>&1; then
+        gpus=$(gpu-check listjson NVIDIA 2>&1)
+    else
+        gpus=$(/os/bin/nvidia-json)
+    fi    
 fi
 
 ## 如果启用了自动禁用失败的显卡

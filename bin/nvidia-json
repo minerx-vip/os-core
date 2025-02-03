@@ -1,28 +1,36 @@
 #!/bin/bash
 
+# update pci.ids from local source
+if [[ -e $PCIIDS && $PCIIDS -nt /usr/share/misc/pci.ids ]]; then
+        cp -f /usr/share/misc/pci.ids /usr/share/misc/pci.ids.old
+        cp -f $PCIIDS /usr/share/misc/pci.ids
+fi
+
 mkdir -p /run/os/
 
 # 定义要查询的字段
 declare -A QUERY_FIELDS=(
-    ["name"]="name"
-    ["gpu_uuid"]="gpu_uuid"
-    ["pci_bus_id"]="pci.bus_id"
-    ["fan_speed"]="fan.speed"
-    ["temperature_gpu"]="temperature.gpu"
-    ["temperature_mem"]="temperature.memory"
-    ["power_default_limit"]="power.default_limit"
-    ["power_min_limit"]="power.min_limit"
-    ["power_max_limit"]="power.max_limit"
-    ["power_limit"]="power.limit"
-    ["power_draw"]="power.draw"
-    ["memory_total"]="memory.total"
-    ["memory_used"]="memory.used"
-    ["utilization_gpu"]="utilization.gpu"
-    ["utilization_memory"]="utilization.memory"
-    ["clocks_current_memory"]="clocks.current.memory"
-    ["clocks_max_memory"]="clocks.max.memory"
-    ["clocks_sm"]="clocks.sm"
+    # ["name"]="name"
+    ["uuid"]="gpu_uuid"
+    # ["busid"]="pci.bus_id"
+    ["fan_speed_cur"]="fan.speed"
+    ["temp"]="temperature.gpu"
+    ["mtemp"]="temperature.memory"
+    ["plim_def"]="power.default_limit"
+    ["plim_min"]="power.min_limit"
+    ["plim_max"]="power.max_limit"
+    ["plim_cur"]="power.limit"
+    ["power_cur"]="power.draw"
+    ["mem"]="memory.total"
+    ["usedmem"]="memory.used"
+    ["freemem"]="memory.free"
+    ["cload"]="utilization.gpu"
+    ["mload"]="utilization.memory"
+    ["clocks_mem_cur"]="clocks.current.memory"
+    # ["clocks_max_memory"]="clocks.max.memory"
+    ["clocks_gpu_cur"]="clocks.sm"
     ["clocks_mem"]="clocks.mem"
+    ["vbios"]="vbios_version"
 )
 
 # 初始化 JSON 数组
@@ -49,8 +57,41 @@ while true
 do
     # 初始化单个 GPU 的 JSON 对象
     JSON_OBJECT="{"
+   
+    # 获取 `busid`（用于查询 subvendor），失败时设为空字符串
+    busid_tmp=$(nvidia-smi --id="$GPU_ID" --query-gpu=pci.bus_id --format=csv,noheader,nounits 2>/dev/null | xargs || echo "")
+    busid_tmp="${busid_tmp:-""}"
+    if [[ $busid_tmp =~ "Unknown Error" ]]; then
+        busid_tmp=$(echo "$busid_tmp" | awk '{print $8}')
+        busid_tmp=${busid_tmp#GPU0000:}  # 去掉前缀 GPU0000:
+        busid_tmp=${busid_tmp%:} # 去掉最后的冒号
+        JSON_OBJECT+="\"vbios\":\"MALFUNCTION\","
+    else
+        busid_tmp=${busid_tmp#00000000:}
+    fi
+    JSON_OBJECT+="\"busid\":\"$busid_tmp\","
 
-    # 遍历查询字段
+
+    ## 获取显卡名称
+    # name=`lspci -vmms "$busid_tmp" 2>/dev/null | grep "Device:" | grep -v 'SDevice' | cut -d "[" -f2 | tr -d "]"`
+    name=`lspci -vmms "$busid_tmp" 2>/dev/null | grep "Device:" | grep -v 'SDevice' | awk -F ':' '{print $NF}'`
+    [[ "$name" =~ CMP ]] && name="GeForce $name"
+    name=$(echo "$name" | tr -d ":")
+    name="${name#"${name%%[![:space:]]*}"}"
+    JSON_OBJECT+="\"name\":\"$name\","
+
+
+    # 获取 `subvendor`，失败时设为空字符串
+    subvendor=$(lspci -vmms "$busid_tmp" 2>/dev/null | grep -oP "SVendor:\s\K.*" || echo "")
+    subvendor="${subvendor:-""}"
+
+    # 添加 `subvendor` 到 JSON 对象
+    JSON_OBJECT+="\"subvendor\":\"$subvendor\","
+    
+    ## brand
+    JSON_OBJECT+="\"brand\":\"nvidia\","
+
+ # 遍历查询字段
     for key in "${!QUERY_FIELDS[@]}"; do
         # 查询对应的字段，失败时返回空字符串
         value=$(nvidia-smi --id="$GPU_ID" --query-gpu=${QUERY_FIELDS[$key]} --format=csv,noheader,nounits 2>/dev/null | xargs || echo "")
@@ -58,43 +99,23 @@ do
         # 如果字段没有值，则设为空字符串
         value="${value:-""}"
 
+        ##
+        if [[ $value == "N/A" ]]; then
+            value=""
+        fi
+
+        if [[ $value =~ "Unknown Error" ]]; then
+            if [[ $key == "vbios" ]]; then
+                value="MALFUNCTION"
+            else
+                value=""
+            fi
+            continue
+        fi
+
         # 拼接为 JSON 格式
         JSON_OBJECT+="\"$key\":\"$value\","
     done
-
-    # 获取 `busid`（用于查询 subvendor），失败时设为空字符串
-    busid=$(nvidia-smi --id="$GPU_ID" --query-gpu=pci.bus_id --format=csv,noheader,nounits 2>/dev/null | xargs || echo "")
-    busid="${busid:-""}"
-
-    # 获取 `subvendor`，失败时设为空字符串
-    subvendor=$(lspci -vmms "$busid" 2>/dev/null | grep -oP "SVendor:\s\K.*" || echo "")
-    subvendor="${subvendor:-""}"
-
-    # 添加 `subvendor` 到 JSON 对象
-    JSON_OBJECT+="\"subvendor\":\"$subvendor\","
-
-    # 如果存在 nvtool，则查询额外信息
-    if [[ $USE_NVTOOL -eq 1 ]]; then
-        # 提取 nvtool 信息
-        nvtool_output=$(/hive/sbin/nvtool --coreoffset --clocks --curpl 2>/dev/null | grep "DEVICE #$GPU_ID" -A 4)
-
-        gpu_clocks_offset=$(echo "$nvtool_output" | grep -oP "GPU CLOCKS OFFSET:\s+\K[^\s]+")
-        gpu_clocks_current=$(echo "$nvtool_output" | grep -oP "GPU CLOCKS CURRENT:\s+\K[^\s]+")
-        mem_clocks_current=$(echo "$nvtool_output" | grep -oP "MEM CLOCKS CURRENT:\s+\K[^\s]+")
-        power_limit_current=$(echo "$nvtool_output" | grep -oP "POWER LIMIT CURRENT:\s+\K[^\s]+")
-
-        # 默认值为空字符串
-        gpu_clocks_offset="${gpu_clocks_offset:-""}"
-        gpu_clocks_current="${gpu_clocks_current:-""}"
-        mem_clocks_current="${mem_clocks_current:-""}"
-        power_limit_current="${power_limit_current:-""}"
-
-        # 添加 nvtool 信息到 JSON 对象
-        JSON_OBJECT+="\"nvtool_gpu_clocks_offset\":\"$gpu_clocks_offset\","
-        JSON_OBJECT+="\"nvtool_gpu_clocks_current\":\"$gpu_clocks_current\","
-        JSON_OBJECT+="\"nvtool_mem_clocks_current\":\"$mem_clocks_current\","
-        JSON_OBJECT+="\"nvtool_power_limit_current\":\"$power_limit_current\","
-    fi
 
     # 去掉多余的逗号并关闭 JSON 对象
     JSON_OBJECT=${JSON_OBJECT%,}

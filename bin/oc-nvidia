@@ -53,12 +53,20 @@ handle_oc_config() {
     for ((i=0; i<$gpu_count; i++)); do
         # echo -e "\nGPU $i 的配置:"
 
+        # name=$(echo "$gpu_detect_json" |jq -r ".[$i].name")
+        # BUSID=$(echo "$gpu_detect_json" |jq -r ".[$i].pci_bus_id")
+        # PLMIN=$(echo "$gpu_detect_json" |jq -r ".[$i].power_min_limit")
+        # PLDEF=$(echo "$gpu_detect_json" |jq -r ".[$i].power_default_limit")
+        # PLMAX=$(echo "$gpu_detect_json" |jq -r ".[$i].power_max_limit")
+        # RAM=$(echo "$gpu_detect_json" |jq -r ".[$i].memory_total")
+        # vbios=$(echo "$gpu_detect_json" |jq -r ".[$i].vbios")
+
         name=$(echo "$gpu_detect_json" |jq -r ".[$i].name")
-        BUSID=$(echo "$gpu_detect_json" |jq -r ".[$i].pci_bus_id")
-        PLMIN=$(echo "$gpu_detect_json" |jq -r ".[$i].power_min_limit")
-        PLDEF=$(echo "$gpu_detect_json" |jq -r ".[$i].power_default_limit")
-        PLMAX=$(echo "$gpu_detect_json" |jq -r ".[$i].power_max_limit")
-        RAM=$(echo "$gpu_detect_json" |jq -r ".[$i].memory_total")
+        BUSID=$(echo "$gpu_detect_json" |jq -r ".[$i].busid")
+        PLMIN=$(echo "$gpu_detect_json" |jq -r ".[$i].plim_min")
+        PLDEF=$(echo "$gpu_detect_json" |jq -r ".[$i].plim_def")
+        PLMAX=$(echo "$gpu_detect_json" |jq -r ".[$i].plim_max")
+        RAM=$(echo "$gpu_detect_json" |jq -r ".[$i].mem")
         vbios=$(echo "$gpu_detect_json" |jq -r ".[$i].vbios")
 
         ## 跳过有问题的显卡
@@ -67,13 +75,13 @@ handle_oc_config() {
         echo "${YELLOW}===${NOCOLOR} GPU ${CYAN}$i${NOCOLOR}, ${PURPLE}${BUSID} ${GREEN}$name ${WHITE}${RAM} MB${NOCOLOR}, PL: ${PLMIN}, ${PLDEF}, ${PLMAX} ${YELLOW}=== $(date +%T)${NOCOLOR}"
 
         ## 获取参数
-       item=$(echo "$OC" | jq ".[$i]")
+        item=$(echo "$OC" | jq ".[$i]")
         ## 提取每个对象中的值
-        setcoreoffset=$(echo "$item" | jq '.setcoreoffset')
-        setclocks=$(echo "$item" | jq '.setclocks')
-        setmem=$(echo "$item" | jq '.setmem')
-        setpl=$(echo "$item" | jq '.setpl')
-        setfan=$(echo "$item" | jq '.setfan')
+        setcoreoffset=$(echo "$item" | jq -r '.setcoreoffset')
+        setclocks=$(echo "$item" | jq -r '.setclocks')
+        setmem=$(echo "$item" | jq -r '.setmem')
+        setpl=$(echo "$item" | jq -r '.setpl')
+        setfan=$(echo "$item" | jq -r '.setfan')
 
         # 执行操作
         [[ "$setcoreoffset" =~ ^[0-9]+$ ]] && apply_nvml "-i $i --setcoreoffset $setcoreoffset" || exitcode=$?
