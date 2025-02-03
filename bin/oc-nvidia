@@ -51,15 +51,14 @@ handle_oc_config() {
 
     # 遍历每个GPU的配置
     for ((i=0; i<$gpu_count; i++)); do
-        # echo -e "\nGPU $i 的配置:"
-
-        # name=$(echo "$gpu_detect_json" |jq -r ".[$i].name")
-        # BUSID=$(echo "$gpu_detect_json" |jq -r ".[$i].pci_bus_id")
-        # PLMIN=$(echo "$gpu_detect_json" |jq -r ".[$i].power_min_limit")
-        # PLDEF=$(echo "$gpu_detect_json" |jq -r ".[$i].power_default_limit")
-        # PLMAX=$(echo "$gpu_detect_json" |jq -r ".[$i].power_max_limit")
-        # RAM=$(echo "$gpu_detect_json" |jq -r ".[$i].memory_total")
-        # vbios=$(echo "$gpu_detect_json" |jq -r ".[$i].vbios")
+        
+        ## 处理 USE_GPUS
+        if [[ ! -z ${USE_GPUS} ]] && [[ ${USE_GPUS} != "" ]]; then
+            if [[ ! ${USE_GPUS} =~ $i ]]; then
+                echo "GPU $i is not in USE_GPUS, skipping"
+                continue
+            fi
+        fi
 
         name=$(echo "$gpu_detect_json" |jq -r ".[$i].name")
         BUSID=$(echo "$gpu_detect_json" |jq -r ".[$i].busid")
