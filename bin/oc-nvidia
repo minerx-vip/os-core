@@ -26,7 +26,6 @@ if command -v nvtool &>/dev/null; then
     gpu_detect_json=`gpu-check listjson NVIDIA`
 else
     echoYellow "nvtool not found, skipping setting GPU $i sommething"
-    echo
     gpu_detect_json=$(nvidia-json)
 fi
 
@@ -77,6 +76,7 @@ handle_oc_config() {
     gpu_count=$(echo "$gpu_detect_json" | jq '. | length')
     echoCyan "Detected $gpu_count NVIDIA cards"
 
+
     # 遍历每个GPU的配置
     for ((i=0; i<$gpu_count; i++)); do
         
@@ -84,6 +84,7 @@ handle_oc_config() {
         if [[ ! -z ${USE_GPUS} ]] && [[ ${USE_GPUS} != "" ]]; then
             if [[ ! ${USE_GPUS} =~ $i ]]; then
                 echoYellow "GPU $i is not in USE_GPUS, skipping"
+                echo
                 continue
             fi
         fi
