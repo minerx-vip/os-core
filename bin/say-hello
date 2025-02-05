@@ -290,7 +290,7 @@ fi
 ##########################################################################################
 wallets_len=$(echo "$response" | jq '.result.wallet|length')
 ## 删除现有钱包
-[[ ${wallets_len} -gt 0 ]] && rm -f /os/wallet/*
+rm -f /os/wallet/*
 
 ## 处理服务器返回数据
 for ((i=0; i<wallets_len; i++)); do
@@ -341,9 +341,6 @@ for ((i=0; i<wallets_len; i++)); do
     #     echo ${AUTO_RUNNING} | jq '.' --raw-output > $auto_running_file
     # fi
 done
-
-
-
 
 
 ##########################################################################################
