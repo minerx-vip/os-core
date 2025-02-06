@@ -168,6 +168,10 @@ while true; do
     ## 记录 Miner 启动时间
     miner_start_ts=$(date +%s)
 
+    if [ -d "/hive/lib/" ]; then
+        export LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:/hive/lib
+    fi
+
     # 防止 Ctrl+C 杀死屏幕。仅第一次杀死矿工
     trap 'echo ""' SIGINT
 
