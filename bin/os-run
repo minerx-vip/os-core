@@ -36,6 +36,8 @@ fi
 [[ ! -z ${CUSTOM_ALGO} ]] && export CUSTOM_ALGO=${CUSTOM_ALGO}
 [[ ! -z ${CUSTOM_TEMPLATE} ]] && export CUSTOM_TEMPLATE=${CUSTOM_TEMPLATE}
 [[ ! -z ${CUSTOM_URL} ]] && export CUSTOM_URL=${CUSTOM_URL}
+[[ ! -z ${CUSTOM_USER_CONFIG} ]] && export CUSTOM_USER_CONFIG=${CUSTOM_USER_CONFIG}
+[[ -z ${CUSTOM_MINER}]] && CUSTOM_MINER="custom"
 
 session_name="os_miner_${wallet}"
 RUNNING_FLAG="/run/os/RUNNING_${session_name}"
