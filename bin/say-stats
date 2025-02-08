@@ -120,9 +120,9 @@ stats(){
             # source h-manifest.conf; source h-config.sh; source h-stats.sh;
             if [[ ${wallet} == "qubminer" ]]
             then
-              { source h-manifest.conf; source h-stats.sh; } 1>&2 # output to stderr
+              { source "$MINER_DIR"/h-manifest.conf; "$MINER_DIR"/source h-stats.sh; } 1>&2 # output to stderr
             else
-                { source h-manifest.conf; source h-config.sh; source h-stats.sh; } 1>&2 # output to stderr
+                { source "$MINER_DIR"/h-manifest.conf; source "$MINER_DIR"/h-config.sh; source "$MINER_DIR"/h-stats.sh; } 1>&2 # output to stderr
             fi
         fi
 
