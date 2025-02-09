@@ -158,7 +158,6 @@ echo "export PATH=${NEW_PATH}:\$PATH" | sudo tee -a ${BASHRC_FILE} > /dev/null
 sudo cp /os/service/os-core.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable os-core.service
-sudo systemctl stop os-core.service
-sudo systemctl start os-core.service
+sudo systemctl restart os-core.service
 
 echoCyan "------------------------------------------------------------------ ${VER} Installation successful. ${message}"

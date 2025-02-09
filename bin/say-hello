@@ -27,12 +27,15 @@ mkdir -p /var/log/miner/custom/
 ##########################################################################################
 ## 检查参数
 ##########################################################################################
+register="false"
 tag_debug=0     # 是否开启 Debug 模式
 for var in "$@"; do
     case "$var" in
         debug) tag_debug=1;;
+        register) register="true";;
     esac
 done
+
 
 
 ##########################################################################################
@@ -268,6 +271,7 @@ exitcode=$?
 
 [[ ${tag_debug} == 1 ]] && echo "状态码: ${exitcode} 返回值: $response"
 
+
 ##########################################################################################
 ## 处理错误
 ##########################################################################################
@@ -275,6 +279,23 @@ if [[ $exitcode -ne 0 ]]; then
     echo "${RED}ERROR: connection to API server failed ($api)${NOCOLOR}"
     echoRed "ERROR: connection to API server failed $api, $response" 
 fi
+
+
+##########################################################################################
+## 矿机是否被标记为删除
+##########################################################################################
+deleted=`echo "$response" | jq '.deleted' --raw-output`
+echo "-------------------------------------- deleted = ${deleted}"
+if [[ ${deleted} == "true" ]]; then
+    echoRed "The mining machine is marked for deletion and needs to stop its service."
+
+    if [[ -f /etc/systemd/system/os-core.service ]]; then
+        systemctl disable os-core.service
+        systemctl stop os-core.service
+    fi
+    exit 1
+fi
+
 
 ##########################################################################################
 ## write rig.conf
@@ -284,6 +305,7 @@ if [[ -z "$config" || "$config" == "null" ]]; then
     echoRed "no config field in response: ${config}"
     exit 1
 fi
+
 
 ##########################################################################################
 # Wallet config
