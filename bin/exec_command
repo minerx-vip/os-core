@@ -55,8 +55,15 @@ fi
 ## Other
 ##################################################################
 ## Start
-${command_str} | tee ${log_file}
-if [[ -$ -eq 0 ]]; then
+printf "Exec Command: %s\n" "${command_str}" | tee -a ${log_file}
+
+# 使用 eval 或 bash -c 执行命令，防止 command_str 解析错误
+eval "${command_str}" &> >(tee -a ${log_file})
+# 或者
+# bash -c "${command_str}" &> >(tee -a ${log_file})
+
+# 获取命令的退出状态
+if [[ ${PIPESTATUS[0]} -eq 0 ]]; then
     /os/bin/say-message ok --file=${log_file} --id=${command_id}
 else
     /os/bin/say-message error --file=${log_file} --id=${command_id}
