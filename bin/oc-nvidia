@@ -124,8 +124,8 @@ handle_oc_config() {
             if (( $(echo "$setpl > $PLMAX" | bc -l) )) || (( $(echo "$setpl < $PLMIN" | bc -l) )); then
                 setpl=${PLDEF}
                 # [[ "$setpl" =~ ^[0-9]+$ ]] && 
-                apply_nvidia_smi "-i $i -pl ${setpl}" || exitcode=$?
             fi
+            apply_nvidia_smi "-i $i -pl ${setpl}" || exitcode=$?
         fi
     done
 }
