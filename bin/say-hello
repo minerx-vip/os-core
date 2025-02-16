@@ -411,7 +411,7 @@ hostnamectl set-hostname "$hostname"
 ##########################################################################################
 current_timestamp=$(date +%s)
 time_difference=$((current_timestamp - boot_time))
-if [ $time_difference -gt 240 ]; then
+if [ $time_difference -gt 300 ]; then
     os auto
 fi
 
