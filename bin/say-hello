@@ -399,7 +399,11 @@ hostnamectl set-hostname "$hostname"
 ##########################################################################################
 ## Start || Stop Miner
 ##########################################################################################
-os auto
+current_timestamp=$(date +%s)
+time_difference=$((current_timestamp - boot_time))
+if [ $time_difference -gt 60 ]; then
+    os auto
+fi
 
 ##########################################################################################
 ## Exec Command
