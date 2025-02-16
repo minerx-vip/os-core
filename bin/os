@@ -11,6 +11,7 @@ export MINER=custom
 STOP_TIMEOUT=15
 mkdir -p /run/os/
 mkdir -p /var/log/os/
+mkdir -p /var/log/miner/custom/
 
 
 ## 程序参数
