@@ -46,8 +46,8 @@ boot_time=$(( `date +%s` - `awk '{printf "%d", $1}' /proc/uptime` ))
 ## 当前时间
 current_timestamp=$(date +%s)
 time_difference=$((current_timestamp - boot_time))
-if [ $time_difference -lt 60 ]; then
-    echo "延迟1分钟启动，系统正常运行时间: ${time_difference}"
+if [ $time_difference -lt 180 ]; then
+    echo "延迟3分钟启动，系统正常运行时间: ${time_difference}"
     exit 0
 fi
 
