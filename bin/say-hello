@@ -46,7 +46,8 @@ boot_time=$(( `date +%s` - `awk '{printf "%d", $1}' /proc/uptime` ))
 ## 当前时间
 current_timestamp=$(date +%s)
 time_difference=$((current_timestamp - boot_time))
-if [ $time_difference -lt 60 ]; then
+if [ $time_difference -lt 120 ]; then
+    echo -e "System rebooted. Waiting 120 seconds..."
     exit 0
 fi
 
@@ -413,6 +414,8 @@ current_timestamp=$(date +%s)
 time_difference=$((current_timestamp - boot_time))
 if [ $time_difference -gt 300 ]; then
     os auto
+else
+    echo "Time difference is less than 5 minutes, not starting miner"
 fi
 
 
