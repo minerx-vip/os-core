@@ -1,5 +1,22 @@
 #!/bin/bash
 
+##################################################################
+## 系统重启后，等待5分钟才开始运行挖矿软件
+##################################################################
+## 启动时间
+boot_time=$(( `date +%s` - `awk '{printf "%d", $1}' /proc/uptime` ))
+while true; do
+    ## 当前时间
+    current_timestamp=$(date +%s)
+    time_difference=$((current_timestamp - boot_time))
+    if [ $time_difference -lt 300 ]; then
+        echo "System rebooted. Waiting 300 seconds..."
+        sleep 10
+        continue
+    fi
+    break
+done
+
 ## 加载全局变量
 USE_GPUS=""
 export MINER_NAME=custom
