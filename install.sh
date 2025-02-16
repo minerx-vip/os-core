@@ -89,7 +89,11 @@ main() {
             # 如果时间差超过允许范围，则同步时间
             if ((time_diff > time_tolerance)); then
                 echo "Time difference exceeds ${time_tolerance}s. Synchronizing..."
-                sync_time "$http_time"
+
+                if date -s "@$http_time" >/dev/null 2>&1; then
+                        echo "Successfully synced time to $(date '+%Y-%m-%d %H:%M:%S')"
+                        break
+                fi
             else
                 echo "Time is within acceptable range. No synchronization needed."
                 break
