@@ -1,0 +1,38 @@
+#!/bin/bash
+
+
+flightName=$1
+log_file="/var/log/os/os_miner_${flightName}.log"
+current_time=$(date +%s)
+
+check_log_file(){
+    # 检查文件是否存在
+    if [ ! -f "$log_file" ]; then
+        # echo "日志文件不存在: $log_file"
+        return 1
+    fi
+
+    # 获取文件最后修改时间
+    local file_mtime=$(stat -c %Y "$log_file")
+
+    # 计算文件最后修改时间与当前时间的差值
+    local time_diff=$((current_time - file_mtime))
+
+    # 检查是否在1分钟内更新
+    if [ $time_diff -le 60 ]; then
+        # echo "日志文件存在且在1分钟内更新: $log_file"
+        return 0
+    else
+        # echo "日志文件存在，但超过1分钟未更新: $log_file"
+        return 1
+    fi
+}
+
+
+check_log_file
+# 检查返回状态
+if [ ! $? -eq 0 ]; then
+    # echo "日志文件检查失败"
+    echo "Log file is not available. The system is likely still starting up. Kindly wait a moment and try again." > ${log_file}
+fi
+tail -n 20 ${log_file}
