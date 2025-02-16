@@ -152,6 +152,7 @@ handle_oc_config() {
         ##########################################################################################
         ## 设置功耗
         if [[ ${tag} == "apply_set" ]]; then
+            nvidia-smi -i $i -pm 1
             apply_nvidia_smi "-i $i -pl ${setpl}" || exitcode=$?
         fi
 
