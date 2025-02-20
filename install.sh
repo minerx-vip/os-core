@@ -32,78 +32,78 @@ while [[ $# -gt 0 ]]; do
 done
 
 
-##################################################################
-## Sync Time
-##################################################################
-
-# 时间服务器列表
-servers=("http://www.apple.com" "http://www.baidu.com" "http://www.google.com")
-
-# 允许的时间差（秒）
-time_tolerance=5
-
-# 获取 HTTP 时间
-get_http_time() {
-    local server=$1
-    local http_time
-
-    # 获取 HTTP 响应的日期头信息并转换为时间戳
-    http_time=$(curl -sI "$server" | grep -i "^date:" | awk '{for (i=2; i<=NF; i++) printf $i" "; print ""}' | xargs -I{} date -d "{}" +%s 2>/dev/null)
-
-    if [[ -z "$http_time" ]]; then
-        echo "Failed to fetch time from $server"
-        return 1
-    fi
-
-    echo "$http_time"
-    return 0
-}
-
-# 同步时间函数
-sync_time() {
-    local http_time=$1
-    if date -s "@$http_time" >/dev/null 2>&1; then
-        echo "Successfully synced time to $(date '+%Y-%m-%d %H:%M:%S')"
-    else
-        echo "Failed to sync time"
-    fi
-}
-
-# 主函数
-main() {
-    # 获取本地时间戳
-    local_time=$(date +%s)
-
-    for server in "${servers[@]}"; do
-        echo "Trying to fetch time from $server"
-        http_time=$(get_http_time "$server")
-
-        if [[ $? -eq 0 && -n "$http_time" ]]; then
-            time_diff=$((local_time - http_time))
-            time_diff=${time_diff#-} # 取绝对值
-
-            # echo "Local time: $(date -d "@$local_time" '+%Y-%m-%d %H:%M:%S')"
-            # echo "Server time: $(date -d "@$http_time" '+%Y-%m-%d %H:%M:%S')"
-            # echo "Time difference: ${time_diff}s"
-
-            # 如果时间差超过允许范围，则同步时间
-            if ((time_diff > time_tolerance)); then
-                echo "Time difference exceeds ${time_tolerance}s. Synchronizing..."
-
-                if date -s "@$http_time" >/dev/null 2>&1; then
-                        echo "Successfully synced time to $(date '+%Y-%m-%d %H:%M:%S')"
-                        break
-                fi
-            else
-                echo "Time is within acceptable range. No synchronization needed."
-                break
-            fi
-        fi
-    done
-
-    echo "All servers failed to provide valid time. No synchronization performed."
-}
-main
+# ##################################################################
+# ## Sync Time
+# ##################################################################
+# 
+# # 时间服务器列表
+# servers=("http://www.apple.com" "http://www.baidu.com" "http://www.google.com")
+# 
+# # 允许的时间差（秒）
+# time_tolerance=5
+# 
+# # 获取 HTTP 时间
+# get_http_time() {
+#     local server=$1
+#     local http_time
+# 
+#     # 获取 HTTP 响应的日期头信息并转换为时间戳
+#     http_time=$(curl -sI "$server" | grep -i "^date:" | awk '{for (i=2; i<=NF; i++) printf $i" "; print ""}' | xargs -I{} date -d "{}" +%s 2>/dev/null)
+# 
+#     if [[ -z "$http_time" ]]; then
+#         echo "Failed to fetch time from $server"
+#         return 1
+#     fi
+# 
+#     echo "$http_time"
+#     return 0
+# }
+# 
+# # 同步时间函数
+# sync_time() {
+#     local http_time=$1
+#     if date -s "@$http_time" >/dev/null 2>&1; then
+#         echo "Successfully synced time to $(date '+%Y-%m-%d %H:%M:%S')"
+#     else
+#         echo "Failed to sync time"
+#     fi
+# }
+# 
+# # 主函数
+# main() {
+#     # 获取本地时间戳
+#     local_time=$(date +%s)
+# 
+#     for server in "${servers[@]}"; do
+#         echo "Trying to fetch time from $server"
+#         http_time=$(get_http_time "$server")
+# 
+#         if [[ $? -eq 0 && -n "$http_time" ]]; then
+#             time_diff=$((local_time - http_time))
+#             time_diff=${time_diff#-} # 取绝对值
+# 
+#             # echo "Local time: $(date -d "@$local_time" '+%Y-%m-%d %H:%M:%S')"
+#             # echo "Server time: $(date -d "@$http_time" '+%Y-%m-%d %H:%M:%S')"
+#             # echo "Time difference: ${time_diff}s"
+# 
+#             # 如果时间差超过允许范围，则同步时间
+#             if ((time_diff > time_tolerance)); then
+#                 echo "Time difference exceeds ${time_tolerance}s. Synchronizing..."
+# 
+#                 if date -s "@$http_time" >/dev/null 2>&1; then
+#                         echo "Successfully synced time to $(date '+%Y-%m-%d %H:%M:%S')"
+#                         break
+#                 fi
+#             else
+#                 echo "Time is within acceptable range. No synchronization needed."
+#                 break
+#             fi
+#         fi
+#     done
+# 
+#     echo "All servers failed to provide valid time. No synchronization performed."
+# }
+# main
 
 ##################################################################
 ## Install
