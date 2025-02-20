@@ -1,20 +1,73 @@
 #!/bin/bash
+set -o errexit
+set -o nounset
+echoYellow(){
+    echo -e "\033[33m$*\033[0m"
+}
+echoCyan(){
+    echo -e "\033[36m$*\033[0m"
+}
 
 
-curl https://minerx-download.oss-cn-shanghai.aliyuncs.com/install.sh/install.sh | bash
-if [ $? -eq 0 ]; then
-    echo "First installation successful"
-    exit 0
-fi
-
-echo "First installation failed, retrying..."
+down_uri="https://minerx-download.oss-cn-shanghai.aliyuncs.com"
 source /os/config/rig.conf
-curl ${server_url}/install.sh | bash
-if [ $? -eq 0 ]; then
-    echo "Second installation successful"
-    exit 0
+backup_down_uri="$down_uri_ip"
+
+
+
+
+##################################################################
+## 下载文件并提取
+##################################################################
+download_file() {
+    local uri=$1
+    local version_file="${uri}/VERSION"
+    local filename
+    local url
+    local archive
+
+    # 获取版本号
+    local ver=$(curl -s "$version_file" | awk -F= '{print $2}')
+    [[ -z "$ver" ]] && return 1
+    filename="os-${ver}.tar.gz"
+    url="${uri}/${filename}"
+    archive="/tmp/${filename}"  # 在这里给 archive 赋值
+
+    echoCyan "最新版本: ${ver}"
+
+    # 删除已有的下载文件
+    sudo rm -f "${archive}"
+
+    # 下载并保存
+    if sudo wget -t 5 -T 20 -c "${url}" -P /tmp/; then
+        echoCyan "下载成功: ${filename}"
+        sudo tar xzf ${archive} -C / || { echoYellow "Install failed!"; exit 1; }
+        return 0
+    else
+        echoYellow "下载失败: ${filename}"
+        return 1
+    fi
+}
+
+# 检查主下载 URI
+if ! download_file "${down_uri}"; then
+    # 主下载失败，尝试备用 URI
+    echoYellow "主下载 URI 失败，尝试备用 URI..."
+
+    if ! download_file "${backup_down_uri}"; then
+        echoYellow "备用下载 URI 也失败了！"
+        exit 1
+    fi
 fi
 
-echo "Both installation attempts failed, please check network connection or installation script" >&2
-exit 1
 
+##################################################################
+## Add environment variables
+##################################################################
+NEW_PATH="/os/bin/"
+BASHRC_FILE="/etc/bash.bashrc"
+sudo sed -i "\|export PATH=.*${NEW_PATH}|d" ${BASHRC_FILE}
+echo "export PATH=${NEW_PATH}:\$PATH" | sudo tee -a ${BASHRC_FILE} > /dev/null
+
+
+echoCyan "------------------------------------------------------------------ Update successful."
