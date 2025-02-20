@@ -14,6 +14,9 @@ mkdir -p /var/log/os/
 mkdir -p /var/log/miner/custom/
 
 
+## 临时处理
+
+
 ## 程序参数
 tag=$1
 wallet=${2:-}
@@ -36,6 +39,10 @@ kill_hanged() {
 
 ## 启动session_name="os_miner_${wallet}"
 start() {
+
+    ## TODO 临时处理
+    cp -f /os/miners/custom/h-manifest.conf.default /os/miners/custom/h-manifest.conf
+
     source /os/wallet/${wallet}.conf
     kill_hanged
 
