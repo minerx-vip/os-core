@@ -6,6 +6,11 @@
 # # set -o nounset
 # set -u
 
+## 加载颜色文件
+source /os/bin/colors
+echoCyan "------------------------------------------------------------------ Try to say hello"
+
+
 ##########################################################################################
 ## 定义全局变量
 ##########################################################################################
@@ -14,10 +19,6 @@ rig_config="/os/config/rig.conf"
 ## 检查是否存在配置文件并加载
 [[ ! -f ${rig_config} ]] && echo -e "No config $rig_config" && exit 1
 source ${rig_config}
-
-
-## 加载颜色文件
-source /os/bin/colors
 
 [[ -f /os/etc/VERSION ]] && source /os/etc/VERSION
 
@@ -256,7 +257,6 @@ request=$(
 ## 发送请求
 ##########################################################################################
 ## 直接发送 JSON 文本请求
-    # --connect-timeout 7 --max-time 15 --silent \
 api="${server_url}/worker/report"
 [[ ${tag_debug} == 1 ]] && echo "API = ${api}"
 response=`curl -X POST \
@@ -264,22 +264,7 @@ response=`curl -X POST \
     --connect-timeout 7 --max-time 15 \
     -d "$request" \
     ${api}`
-
-
-# # 将 JSON 数据转换为 MessagePack 格式，并保存到临时文件
-# tmpfile=$(mktemp)
-# echo "$request" | json2msgpack -B 25 > $tmpfile
-#
-# # 使用 curl 发送 POST 请求，传输 MessagePack 格式数据
-# response=`curl -X POST \
-#     -H "Content-Type: application/x-msgpack" \
-#     --connect-timeout 7 --max-time 15 --silent \
-#     --data-binary @$tmpfile \
-#     http://127.0.0.1:30012/myos/receive/receiveData`
 exitcode=$?
-# # 删除临时文件
-# rm -f $tmpfile
-
 [[ ${tag_debug} == 1 ]] && echo "状态码: ${exitcode} 返回值: $response"
 
 
@@ -287,8 +272,22 @@ exitcode=$?
 ## 处理错误
 ##########################################################################################
 if [[ $exitcode -ne 0 ]]; then
-    echo "${RED}ERROR: connection to API server failed ($api)${NOCOLOR}"
-    echoRed "ERROR: connection to API server failed $api, $response" 
+    echoRed "ERROR: connection to API server failed $api, $response, Use domain API instead" 
+
+    ## 如果失败，则使用直接使用域名访问
+    api="${server_url_domain}/worker/report"
+    [[ ${tag_debug} == 1 ]] && echo "API = ${api}"
+    response=`curl -X POST \
+        -H "Content-Type: application/json" \
+        --connect-timeout 7 --max-time 15 \
+        -d "$request" \
+        ${api}`
+    exitcode_domain=$?
+fi
+
+if [[ $exitcode_domain -ne 0 ]]; then
+    echoRed "ERROR: connection to API server failed $api, $response, exit" 
+    exit 1
 fi
 
 
@@ -296,7 +295,6 @@ fi
 ## 矿机是否被标记为删除
 ##########################################################################################
 deleted=`echo "$response" | jq '.deleted' --raw-output`
-echo "-------------------------------------- deleted = ${deleted}"
 if [[ ${deleted} == "true" ]]; then
     echoRed "The mining machine is marked for deletion and needs to stop its service."
 
