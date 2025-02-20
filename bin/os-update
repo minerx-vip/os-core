@@ -1,15 +1,15 @@
 #!/bin/bash
 
 
-
-curl https://down.minerx.vip/install.sh | bash
+curl https://minerx-download.oss-cn-shanghai.aliyuncs.com/install.sh/install.sh | bash
 if [ $? -eq 0 ]; then
     echo "First installation successful"
     exit 0
 fi
 
 echo "First installation failed, retrying..."
-curl https://down.minerx.vip/install.sh | bash
+source /os/config/rig.conf
+curl ${server_url}/install.sh | bash
 if [ $? -eq 0 ]; then
     echo "Second installation successful"
     exit 0
