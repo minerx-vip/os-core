@@ -1,11 +1,40 @@
 #!/bin/bash
 set -o errexit
 set -o nounset
+
+
+echoRed(){
+    echo -e "\033[31m$*\033[0m"
+}
+echoRed_n(){
+    echo -e "\033[31m$*\033[0m"
+}
 echoYellow(){
     echo -e "\033[33m$*\033[0m"
 }
+echoYellow_n(){
+    echo -ne "\033[33m$*\033[0m"
+}
+echoBlue(){
+    echo -e "\033[33m$*\033[0m"
+}
+echoBlue_n(){
+    echo -e "\033[33m$*\033[0m"
+}
+echoGreen(){
+    echo -e "\033[32m$*\033[0m"
+}
+echoGreen_n(){
+    echo -e "\033[32m$*\033[0m"
+}
 echoCyan(){
     echo -e "\033[36m$*\033[0m"
+}
+echoCyan_n(){
+    echo -n -e "\033[36m$*\033[0m"
+}
+echoWhite(){
+    echo -e "\033[37m$*\033[0m"
 }
 
 message=""

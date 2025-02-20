@@ -1,15 +1,81 @@
-##!/bin/bash
+#!/bin/bash
 set -o errexit
 set -o nounset
 
+
+echoRed(){
+    echo -e "\033[31m$*\033[0m"
+}
+echoRed_n(){
+    echo -e "\033[31m$*\033[0m"
+}
+echoYellow(){
+    echo -e "\033[33m$*\033[0m"
+}
+echoYellow_n(){
+    echo -ne "\033[33m$*\033[0m"
+}
+echoBlue(){
+    echo -e "\033[33m$*\033[0m"
+}
+echoBlue_n(){
+    echo -e "\033[33m$*\033[0m"
+}
+echoGreen(){
+    echo -e "\033[32m$*\033[0m"
+}
+echoGreen_n(){
+    echo -e "\033[32m$*\033[0m"
+}
+echoCyan(){
+    echo -e "\033[36m$*\033[0m"
+}
+echoCyan_n(){
+    echo -n -e "\033[36m$*\033[0m"
+}
+echoWhite(){
+    echo -e "\033[37m$*\033[0m"
+}
+
+down_uri="https://minerx-download.oss-cn-shanghai.aliyuncs.com"
+source /os/config/rig.conf
+backup_down_uri="$down_uri_ip"
+filename="sshx-x86_64-unknown-linux-musl.tar.gz"
+archive="/tmp/${filename}"
+
+
+download_file() {
+    local uri=$1
+
+    # 删除已有的下载文件
+    sudo rm -f "${archive}"
+
+    # 下载并保存
+    if sudo wget -t 2 -T 20 -c "${uri}/${filename}" -P /tmp/; then
+        echoCyan "下载成功: ${filename}"
+        sudo tar xf ${archive} -C /usr/local/bin/ || { echoYellow "Install failed!"; exit 1; }
+        return 0
+    else
+        echoYellow "下载失败: ${filename}"
+        return 1
+    fi
+}
+
+
 ## Install
 if ! /usr/local/bin/sshx -V >/dev/null 2>&1; then
-    for i in {1..5}; do
-        curl -sSf https://sshx.io/get | sh && break
-        echo "Retry $i failed. Retrying in 5 seconds..."
-        sleep 5
-    done
+    # 检查主下载 URI
+    if ! download_file "${down_uri}"; then
+        # 主下载失败，尝试备用 URI
+        echoYellow "主下载 URI 失败，尝试备用 URI..."
+
+        if ! download_file "${backup_down_uri}"; then
+            echoRed "备用下载 URI 也失败了！"
+            exit 1
+        fi
+    fi
 fi
+
 
 ## Run
 /usr/local/bin/sshx
