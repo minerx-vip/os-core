@@ -36,6 +36,7 @@ source /os/bin/colors
 wallet=$1
 [[ -z ${wallet} ]] && echoYellow "Configuration file not specified" && exit
 echo "wallet_conf = /os/wallet/${wallet}.conf"
+export os_wallet_conf=/os/wallet/${wallet}.conf
 wallet_conf="/os/wallet/${wallet}.conf"
 [[ ! -f ${wallet_conf} ]] && echoYellow "${wallet_conf} file not found" && exit
 source ${wallet_conf}
