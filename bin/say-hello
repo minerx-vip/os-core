@@ -364,6 +364,9 @@ for ((i=0; i<wallets_len; i++)); do
     sed -i '/USE_GPUS/d' $wallet_config
     echo "USE_GPUS=\"${USE_GPUS}\"" >> $wallet_config
 
+    ## 替换配置文件中的主机名
+    sed -i "s|%WORKER_NAME%|$(hostname)|g" "${wallet_config}"
+
     # ## AUTO_RUNNING
     # auto_running_file="/os/wallet/${wallet_name}_autorunning.sh"
     # AUTO_RUNNING=$(echo "$response" | jq ".result.wallet[$i].AUTO_RUNNING")
