@@ -131,7 +131,11 @@ handle_oc_config() {
             setclocks=0
         fi
 
-        if [[ ! "$setmem" =~ ^[0-9]+$ ]]; then
+        # if [[ ! "$setmem" =~ ^[0-9]+$ ]]; then
+        #     setmem=0
+        # fi
+        # 修改正则表达式，允许负数
+        if [[ ! "$setmem" =~ ^-?[0-9]+$ ]]; then
             setmem=0
         fi
 
