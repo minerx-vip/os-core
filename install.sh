@@ -130,6 +130,7 @@ fi
 
 ## 如果指定了 farmid, 则进行重写安装
 if [[ ! -z ${farmid} ]]; then
+    [[ ! -f /os/config/rig.conf ]] && touch /os/config/rig.conf
     sed -i '/^farm_hash/d' /os/config/rig.conf
     echo "farm_hash=${farmid}" >> /os/config/rig.conf
 
