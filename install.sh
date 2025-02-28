@@ -40,6 +40,7 @@ echoWhite(){
 message=""
 farmid=""
 use_ip_as_hostname="false"
+force="false"
 down_uri="https://minerx-download.oss-cn-shanghai.aliyuncs.com"
 backup_down_uri="http://47.97.210.214:8889"
 
