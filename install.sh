@@ -132,7 +132,7 @@ if [[ ${use_ip_as_hostname} == 'true' ]]; then
     for i in "${!ip_parts[@]}"; do
         ip_parts[$i]=$(printf "%03d" "${ip_parts[$i]}")
     done
-    IP_STR="${ip_parts[0]}_${ip_parts[1]}_${ip_parts[2]}_${ip_parts[3]}"
+    IP_STR="${ip_parts[2]}_${ip_parts[3]}"
 
     sed -i '/^worker_name/d' /os/config/rig.conf
     echo "worker_name=\"ip_${IP_STR}\"" >> /os/config/rig.conf
