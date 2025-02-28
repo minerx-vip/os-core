@@ -197,9 +197,11 @@ handle_oc_config() {
             printf "LMEM=\"%s\"\n" "$LMEM" >> /hive-config/nvidia-oc.conf
             printf "FAN=\"%s\"\n" "$FAN" >> /hive-config/nvidia-oc.conf
             printf "PLIMIT=\"%s\"\n" "$PLIMIT" >> /hive-config/nvidia-oc.conf
+
+            ## 重新加载配置
+            export NVIDIA_OC_CONF="/hive-config/nvidia-oc.conf"
+            /hive/sbin/nvidia-oc
         fi
-        export NVIDIA_OC_CONF="/hive-config/nvidia-oc.conf"
-        /hive/sbin/nvidia-oc
     fi
 }
 
