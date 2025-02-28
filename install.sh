@@ -55,6 +55,10 @@ while [[ $# -gt 0 ]]; do
             farmid="$2"
             shift 2 # 跳过参数和值
             ;;
+        --force)
+            force="true"
+            shift
+            ;;
         *)
             echo "未知选项: $1"
             exit 1
@@ -111,17 +115,28 @@ fi
 ## If farmid is specified, perform an overwrite installation.
 ##################################################################
 RIG_CONFIG="/os/config/rig.conf"
-if [[ -z ${farmid} ]]; then
-    if [[ ! -f ${RIG_CONFIG} ]]; then
+if [[ -z ${farmid} ]] && [[ ! -f ${RIG_CONFIG} ]]; then
         echoYellow "Please specify farmid"
         exit 1
-    fi
-else
-    if [[ ! -f ${RIG_CONFIG} ]]; then
-        echo "farm_hash=${farmid}" > /os/config/rig.conf
-        echo "worker_name=`hostname`" >> /os/config/rig.conf
-        echo 'server_url="https://api.minerx.vip"' >> /os/config/rig.conf
-    fi
+fi
+
+## 强制安装 - 先停止服务
+if [[ ${force} == 'true' ]]; then
+    sudo systemctl daemon-reload
+    sudo systemctl stop os-core.service
+fi
+
+if [[ ! -z ${farmid} ]]; then
+    sed -i '/^farm_hash/d' /os/config/rig.conf
+    echo "farm_hash=${farmid}" >> /os/config/rig.conf
+
+    sed -i '/^worker_name/d' /os/config/rig.conf
+    echo "worker_name=`hostname`" >> /os/config/rig.conf
+
+    sed -i '/^server_url/d' /os/config/rig.conf
+    echo 'server_url="http://47.97.210.214:8888"' >> /os/config/rig.conf
+    echo 'server_url_domain="https://api.minerx.vip"' >> /os/config/rig.conf
+    cat /os/config/rig.conf
 fi
 
 
