@@ -115,6 +115,7 @@ fi
 ## If farmid is specified, perform an overwrite installation.
 ##################################################################
 RIG_CONFIG="/os/config/rig.conf"
+## 如果没有指定 farmid, 并且配置文件不存在，则退出
 if [[ -z ${farmid} ]] && [[ ! -f ${RIG_CONFIG} ]]; then
         echoYellow "Please specify farmid"
         exit 1
@@ -126,6 +127,7 @@ if [[ ${force} == 'true' ]]; then
     sudo systemctl stop os-core.service
 fi
 
+## 如果指定了 farmid, 则进行重写安装
 if [[ ! -z ${farmid} ]]; then
     sed -i '/^farm_hash/d' /os/config/rig.conf
     echo "farm_hash=${farmid}" >> /os/config/rig.conf
