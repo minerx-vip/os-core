@@ -104,9 +104,6 @@ handle_oc_config() {
         RAM=$(echo "$gpu_detect_json" |jq -r ".[$i].mem")
         vbios=$(echo "$gpu_detect_json" |jq -r ".[$i].vbios")
 
-        ## 跳过有问题的显卡
-        [[ ${vbios} == "MALFUNCTION" ]] && continue
-
         if [[ ${tag} == "apply_set" ]]; then
             echo "${YELLOW}===${NOCOLOR} GPU ${CYAN}$i${NOCOLOR}, ${PURPLE}${BUSID} ${GREEN}$name ${WHITE}${RAM} MB${NOCOLOR}, PL: ${PLMIN}, ${PLDEF}, ${PLMAX} ${YELLOW}=== $(date +%T)${NOCOLOR}"
         fi
@@ -115,6 +112,7 @@ handle_oc_config() {
         item=$(echo "$OC" | jq ".[$i]")
         ## 提取每个对象中的值
         setcoreoffset=$(echo "$item" | jq -r '.setcoreoffset')
+        setmemoffset=$(echo "$item" | jq -r '.setmemoffset')
         setclocks=$(echo "$item" | jq -r '.setclocks')
         setmem=$(echo "$item" | jq -r '.setmem')
         setpl=$(echo "$item" | jq -r '.setpl')
@@ -127,15 +125,15 @@ handle_oc_config() {
             setcoreoffset=0
         fi
 
+        if [[ ! "$setmemoffset" =~ ^-?[0-9]+$ ]]; then
+            setmemoffset=0
+        fi
+
         if [[ ! "$setclocks" =~ ^[0-9]+$ ]]; then
             setclocks=0
         fi
 
-        # if [[ ! "$setmem" =~ ^[0-9]+$ ]]; then
-        #     setmem=0
-        # fi
-        # 修改正则表达式，允许负数
-        if [[ ! "$setmem" =~ ^-?[0-9]+$ ]]; then
+        if [[ ! "$setmem" =~ ^[0-9]+$ ]]; then
             setmem=0
         fi
 
@@ -146,65 +144,67 @@ handle_oc_config() {
         if [[ ! "$setpl" =~ ^[0-9]+$ ]]; then
             setpl=0
         fi
-        ## 设置功率 - 使用 nvidia-smi 设置功耗，不使用 nvtool
         if (( $(echo "$setpl > $PLMAX" | bc -l) )) || (( $(echo "$setpl < $PLMIN" | bc -l) )); then
             setpl=${PLDEF}
         fi
 
         ##########################################################################################
         ## 判断是否有 nvtool 命令，如果没有则跳过某些参数的设置
+        
+        ## 跳过有问题的显卡 TODO，这里的逻辑有问题
+        # [[ ${vbios} == "MALFUNCTION" ]] && continue
         ##########################################################################################
-        ## 设置功耗
-        if [[ ${tag} == "apply_set" ]]; then
+        ## 设置功率 - 使用 nvidia-smi 设置功耗，不使用 nvtool
+        if [[ ${tag} == "apply_set" ]] && [[ ${vbios} != "MALFUNCTION" ]]; then
             nvidia-smi -i $i -pm 1
             apply_nvidia_smi "-i $i -pl ${setpl}" || exitcode=$?
         fi
 
         ## 如果存在 nvtool 命令，则设置其他参数
         if command -v nvtool &>/dev/null; then
-            # 执行操作
-            # [[ "$setcoreoffset" =~ ^[0-9]+$ ]] && apply_nvml "-i $i --setcoreoffset $setcoreoffset" || exitcode=$?
-            # [[ "$setclocks" =~ ^[0-9]+$ ]] && apply_nvml "-i $i --setclocks $setclocks" || exitcode=$?
-            # [[ "$setmem" =~ ^[0-9]+$ ]] && apply_nvml "-i $i --setmem $setmem" || exitcode=$?
-            # [[ "$setfan" =~ ^[0-9]+$ ]] && apply_nvml "-i $i --setfan $setfan" || exitcode=$?
+            if [[ ${tag} == "apply_hive" ]]; then
+                ## 拼接 HiveOS 用参数
+                [[ -z "$CLOCK" ]] && CLOCK="${setcoreoffset}" || CLOCK="${CLOCK} ${setcoreoffset}"
+                [[ -z "$MEM" ]] && MEM="${setmemoffset}" || MEM="${MEM} ${setmemoffset}"
+                [[ -z "$LCLOCK" ]] && LCLOCK="${setclocks}" || LCLOCK="${LCLOCK} ${setclocks}"
+                [[ -z "$LMEM" ]] && LMEM="${setmem}" || LMEM="${LMEM} ${setmem}"
+                [[ -z "$FAN" ]] && FAN="${setfan}" || FAN="${FAN} ${setfan}"
+                [[ -z "$PLIMIT" ]] && PLIMIT="${setpl}" || PLIMIT="${PLIMIT} ${setpl}"
+            fi
 
-        if [[ ${tag} == "apply_hive" ]]; then
-            ## 拼接 HiveOS 用参数
-            [[ -z "$CLOCK" ]] && CLOCK="${setcoreoffset}" || CLOCK="${CLOCK} ${setcoreoffset}"
-            [[ -z "$LCLOCK" ]] && LCLOCK="${setclocks}" || LCLOCK="${LCLOCK} ${setclocks}"
-            [[ -z "$MEM" ]] && MEM="${setmem}" || MEM="${MEM} ${setmem}"
-            [[ -z "$FAN" ]] && FAN="${setfan}" || FAN="${FAN} ${setfan}"
-            [[ -z "$PLIMIT" ]] && PLIMIT="${setpl}" || PLIMIT="${PLIMIT} ${setpl}"
-        fi
-
-        ## 执行超频操作
-        if [[ ${tag} == "apply_set" ]]; then
-            apply_nvml "-i $i --setcoreoffset $setcoreoffset" || exitcode=$?
-            apply_nvml "-i $i --setclocks $setclocks" || exitcode=$?
-            apply_nvml "-i $i --setmem $setmem" || exitcode=$?
-            apply_nvml "-i $i --setfan $setfan" || exitcode=$?
-        fi
-
+            ## 执行超频操作
+            if [[ ${tag} == "apply_set" ]] && [[ ${vbios} != "MALFUNCTION" ]]; then
+                apply_nvml "-i $i --setcoreoffset $setcoreoffset" || exitcode=$?
+                apply_nvml "-i $i --setmemoffset $setmemoffset" || exitcode=$?
+                apply_nvml "-i $i --setclocks $setclocks" || exitcode=$?
+                apply_nvml "-i $i --setmem $setmem" || exitcode=$?
+                apply_nvml "-i $i --setfan $setfan" || exitcode=$?
+            fi
         fi
     done
 
-    # ## TODO 执行超频操作之前先覆盖 hiveos 配置
+    ## 执行超频操作之前先覆盖 hiveos 配置
     if command -v nvtool &>/dev/null; then
         if [[ ${tag} == "apply_hive" ]]; then
             [[ ! -f /hive-config/nvidia-oc.conf ]] && touch /hive-config/nvidia-oc.conf
             # 先清空这些特定的配置行，避免重复追加
-            sed -i '/^CLOCK=/d; /^LCLOCK=/d; /^MEM=/d; /^FAN=/d; /^PLIMIT=/d' /hive-config/nvidia-oc.conf
+            sed -i '/^CLOCK=/d; /^MEM=/d; /^LCLOCK=/d; /^LMEM=/d; /^FAN=/d; /^PLIMIT=/d' /hive-config/nvidia-oc.conf
 
             # 然后追加新的配置
             printf "CLOCK=\"%s\"\n" "$CLOCK" >> /hive-config/nvidia-oc.conf
-            printf "LCLOCK=\"%s\"\n" "$LCLOCK" >> /hive-config/nvidia-oc.conf
             printf "MEM=\"%s\"\n" "$MEM" >> /hive-config/nvidia-oc.conf
+            printf "LCLOCK=\"%s\"\n" "$LCLOCK" >> /hive-config/nvidia-oc.conf
+            printf "LMEM=\"%s\"\n" "$LMEM" >> /hive-config/nvidia-oc.conf
             printf "FAN=\"%s\"\n" "$FAN" >> /hive-config/nvidia-oc.conf
             printf "PLIMIT=\"%s\"\n" "$PLIMIT" >> /hive-config/nvidia-oc.conf
         fi
+        export NVIDIA_OC_CONF="/hive-config/nvidia-oc.conf"
         /hive/sbin/nvidia-oc
     fi
 }
 
+## 先应用到 hiveos 配置文件
 handle_oc_config apply_hive
+
+## 然后执行超频操作
 handle_oc_config apply_set
