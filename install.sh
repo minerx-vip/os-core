@@ -140,7 +140,6 @@ if [[ ! -z ${farmid} ]]; then
     sed -i '/^server_url/d' /os/config/rig.conf
     echo 'server_url="http://47.97.210.214:8888"' >> /os/config/rig.conf
     echo 'server_url_domain="https://api.minerx.vip"' >> /os/config/rig.conf
-    cat /os/config/rig.conf
 fi
 
 
