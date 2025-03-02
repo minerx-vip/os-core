@@ -154,24 +154,6 @@ if [[ ${gpu_count_nvidia} -gt 0 ]]; then
     fi    
 fi
 
-## 如果启用了自动禁用失败的显卡
-if [[ ${autoDisableFailedGpu} == "true" ]]; then
-    i=0
-    DISABLE_GPU=""
-    for vbios in $(echo "$gpus" | jq -r '.[].vbios'); do
-        if [[ ${vbios} == "MALFUNCTION" ]]; then
-            if [[ -z "$DISABLE_GPU" ]]; then
-                DISABLE_GPU="${i}"
-            else
-                DISABLE_GPU="${DISABLE_GPU},${i}"
-            fi
-            echo "失败的显卡: ${i}"
-        fi
-        i=$(expr $i + 1)
-    done
-fi
-[[ ${tag_debug} == 1 ]] && echo "DISABLE_GPU = ${DISABLE_GPU}"
-
 ## 获取主机名
 if [[ -z ${worker_name} ]] || [[ ${worker_name} == "" ]]; then
     worker_name=`hostname`
@@ -334,35 +316,6 @@ for ((i=0; i<wallets_len; i++)); do
     ## 写入配置文件
     wallet_config="/os/wallet/${wallet_name}.conf"
     echo ${item} | jq '.' --raw-output > $wallet_config
-
-    ## 更新 USE_GPUS
-    unset USE_GPUS
-    source $wallet_config
-    if [[ ! -z ${DISABLE_GPU} ]] && [[ ${DISABLE_GPU} != "" ]] ; then
-        ## 如果 USE_GPUS 为空，就给他定义一个
-        if [[ -z ${USE_GPUS} ]] || [[ ${${USE_GPUS}} == "" ]] ;then
-            USE_GPUS=$(seq -s "," 0 $((gpu_count_nvidia - 1)))
-        fi
-
-        # 将 USE_GPUS 和 DISABLE_GPU 转换为数组
-        IFS=',' read -r -a use_gpus_array <<< "$USE_GPUS"
-        IFS=',' read -r -a disable_gpus_array <<< "$DISABLE_GPU"
-
-        # 创建一个新的数组来存储过滤后的 USE_GPUS
-        filtered_use_gpus=()
-
-        # 遍历 USE_GPUS 数组，检查它们是否在 DISABLE_GPU 数组中，如果不在则保留
-        for gpu in "${use_gpus_array[@]}"; do
-            if [[ ! " ${disable_gpus_array[@]} " =~ " ${gpu} " ]]; then
-                filtered_use_gpus+=("$gpu")
-            fi
-        done
-
-        # 将 filtered_use_gpus 数组转换回以逗号分隔的字符串，并删除数组中的空格
-        USE_GPUS=$(IFS=','; echo "${filtered_use_gpus[*]}")
-    fi
-    sed -i '/USE_GPUS/d' $wallet_config
-    echo "USE_GPUS=\"${USE_GPUS}\"" >> $wallet_config
 
     ## 替换配置文件中的主机名
     sed -i "s|%WORKER_NAME%|$(hostname)|g" "${wallet_config}"

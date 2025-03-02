@@ -88,12 +88,10 @@ handle_oc_config() {
     for ((i=0; i<$gpu_count; i++)); do
         
         ## 处理 USE_GPUS
-        if [[ ! -z ${USE_GPUS} ]] && [[ ${USE_GPUS} != "" ]]; then
-            if [[ ! ${USE_GPUS} =~ $i ]]; then
-                echoYellow "GPU $i is not in USE_GPUS, skipping"
-                echo
-                continue
-            fi
+        if ! echo "$USE_GPUS" | grep -q -w "$i"; then
+            echo "GPU $i is not in USE_GPUS, skipping"
+            echo
+            continue
         fi
 
         name=$(echo "$gpu_detect_json" |jq -r ".[$i].name")
