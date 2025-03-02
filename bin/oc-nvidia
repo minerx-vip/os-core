@@ -4,7 +4,11 @@
 
 # 定义JSON文件路径
 # JSON_FILE="/os/config/oc-nvidia.json"
+source /os/bin/colors
 WALLET_CONF=$1
+## 没有指定钱包文件，退出
+[[ -z ${WALLET_CONF} ]] && echoRed "Wallet config file not specified" && exit 1
+[[ ! -f ${WALLET_CONF} ]] && echoRed "Wallet config file not found: ${WALLET_CONF}" && exit 1
 source ${WALLET_CONF}
 unset CUDA_VISIBLE_DEVICES
 NVML_TIMEOUT=10
@@ -15,8 +19,8 @@ NVML_TIMEOUT=10
 ## 如果 GPU 数量为 0，退出
 n=`/os/bin/gpu-count NVIDIA`
 if [[ $n -eq 0 ]]; then
-	echo "No NVIDIA GPU detected"
-	exit 0
+    echoRed "No NVIDIA GPU detected"
+    exit 0
 fi
 
 
@@ -25,7 +29,7 @@ if command -v nvtool &>/dev/null; then
     ## 获取 GPU 信息
     gpu_detect_json=`gpu-check listjson NVIDIA`
 else
-    echoYellow "nvtool not found, skipping setting GPU $i sommething"
+    echoYellow "nvtool not found, skipping setting GPU sommething"
     gpu_detect_json=$(nvidia-json)
 fi
 
@@ -86,14 +90,7 @@ handle_oc_config() {
 
     # 遍历每个GPU的配置
     for ((i=0; i<$gpu_count; i++)); do
-        
-        ## 处理 USE_GPUS
-        if ! echo "$USE_GPUS" | grep -q -w "$i"; then
-            echo "GPU $i is not in USE_GPUS, skipping"
-            echo
-            continue
-        fi
-
+         
         name=$(echo "$gpu_detect_json" |jq -r ".[$i].name")
         BUSID=$(echo "$gpu_detect_json" |jq -r ".[$i].busid")
         PLMIN=$(echo "$gpu_detect_json" |jq -r ".[$i].plim_min")
@@ -146,11 +143,18 @@ handle_oc_config() {
             setpl=${PLDEF}
         fi
 
+        # ## 处理 USE_GPUS
+        skipp_this="false"
+        if [[ ! -z ${USE_GPUS} ]] && ! echo "$USE_GPUS" | grep -q -w "$i"; then
+            echo "GPU $i is not in USE_GPUS, skipping"
+            skipp_this="true"
+        fi
+
         ##########################################################################################
         ## 判断是否有 nvtool 命令，如果没有则跳过某些参数的设置
         ##########################################################################################
         ## 设置功率 - 使用 nvidia-smi 设置功耗，不使用 nvtool
-        if [[ ${tag} == "apply_set" ]] && [[ ${vbios} != "MALFUNCTION" ]]; then
+        if [[ ${tag} == "apply_set" ]] && [[ ${vbios} != "MALFUNCTION" ]] && [[ ${skipp_this} == "false" ]]; then
             nvidia-smi -i $i -pm 1
             apply_nvidia_smi "-i $i -pl ${setpl}" || exitcode=$?
         fi
@@ -168,7 +172,7 @@ handle_oc_config() {
             fi
 
             ## 执行超频操作
-            if [[ ${tag} == "apply_set" ]] && [[ ${vbios} != "MALFUNCTION" ]]; then
+            if [[ ${tag} == "apply_set" ]] && [[ ${vbios} != "MALFUNCTION" ]] && [[ ${skipp_this} == "false" ]]; then
                 apply_nvml "-i $i --setcoreoffset $setcoreoffset" || exitcode=$?
                 apply_nvml "-i $i --setmemoffset $setmemoffset" || exitcode=$?
                 apply_nvml "-i $i --setclocks $setclocks" || exitcode=$?
@@ -195,7 +199,9 @@ handle_oc_config() {
 
             ## 重新加载配置
             export NVIDIA_OC_CONF="/hive-config/nvidia-oc.conf"
-            /hive/sbin/nvidia-oc
+            if [[ -z ${USE_GPUS} ]]; then
+                /hive/sbin/nvidia-oc
+            fi
         fi
     fi
 }
