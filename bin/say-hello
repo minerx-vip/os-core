@@ -388,6 +388,60 @@ hostnamectl set-hostname "$hostname"
 ##########################################################################################
 os auto
 
+##########################################################################################
+## sshx 运行最大时长1小时
+##########################################################################################
+check_and_kill_screen() {
+    local SCREEN_NAME="$1"
+    local MAX_RUNTIME=3600  # 最大允许运行时间（秒）
+
+    # 获取 screen 会话的 PID
+    SCREEN_PID=$(screen -ls | grep "$SCREEN_NAME" | awk '{print $1}' | cut -d. -f1)
+
+    # 检查是否找到 PID
+    if [ -z "$SCREEN_PID" ]; then
+        echo "Error: Screen session '$SCREEN_NAME' not found."
+        return 1
+    fi
+
+    # 获取进程的运行时长（格式为 [[dd-]hh:]mm:ss），并去除空格
+    RUNTIME=$(ps -o etime= -p "$SCREEN_PID" | tr -d ' ')
+
+    # 将运行时长转换为秒数
+    SECONDS=0
+    if [[ "$RUNTIME" =~ ^([0-9]+)-([0-9]+):([0-9]+):([0-9]+)$ ]]; then
+        # 格式为 dd-hh:mm:ss
+        SECONDS=$((10#${BASH_REMATCH[1]} * 86400 + 10#${BASH_REMATCH[2]} * 3600 + 10#${BASH_REMATCH[3]} * 60 + 10#${BASH_REMATCH[4]}))
+    elif [[ "$RUNTIME" =~ ^([0-9]+):([0-9]+):([0-9]+)$ ]]; then
+        # 格式为 hh:mm:ss
+        SECONDS=$((10#${BASH_REMATCH[1]} * 3600 + 10#${BASH_REMATCH[2]} * 60 + 10#${BASH_REMATCH[3]}))
+    elif [[ "$RUNTIME" =~ ^([0-9]+):([0-9]+)$ ]]; then
+        # 格式为 mm:ss
+        SECONDS=$((10#${BASH_REMATCH[1]} * 60 + 10#${BASH_REMATCH[2]}))
+    elif [[ "$RUNTIME" =~ ^([0-9]+)$ ]]; then
+        # 格式为 ss
+        SECONDS=$((10#${BASH_REMATCH[1]}))
+    else
+        echo "Error: Unknown time format: $RUNTIME"
+        return 1
+    fi
+
+    # # 输出运行秒数
+    # echo "Screen session '$SCREEN_NAME' has been running for: $SECONDS seconds"
+
+    # 如果运行时间超过 MAX_RUNTIME，则结束会话
+    if [ "$SECONDS" -gt "$MAX_RUNTIME" ]; then
+        echo "Screen session '$SCREEN_NAME' has exceeded the maximum runtime of $MAX_RUNTIME seconds. Killing it..."
+        screen -S "$SCREEN_NAME" -X quit
+        if [ $? -eq 0 ]; then
+            echo "Screen session '$SCREEN_NAME' has been terminated."
+        else
+            echo "Error: Failed to terminate screen session '$SCREEN_NAME'."
+            # return 1
+        fi
+    fi
+}
+check_and_kill_screen "os_sshx"
 
 ##########################################################################################
 ## Exec Command
