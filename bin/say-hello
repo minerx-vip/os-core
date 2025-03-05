@@ -401,7 +401,7 @@ check_and_kill_screen() {
     # 检查是否找到 PID
     if [ -z "$SCREEN_PID" ]; then
         echo "Error: Screen session '$SCREEN_NAME' not found."
-        return 1
+        # return 1
     fi
 
     # 获取进程的运行时长（格式为 [[dd-]hh:]mm:ss），并去除空格
@@ -423,7 +423,7 @@ check_and_kill_screen() {
         SECONDS=$((10#${BASH_REMATCH[1]}))
     else
         echo "Error: Unknown time format: $RUNTIME"
-        return 1
+        # return 1
     fi
 
     # # 输出运行秒数
