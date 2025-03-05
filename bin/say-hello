@@ -299,6 +299,28 @@ fi
 
 
 ##########################################################################################
+# AutoFan
+##########################################################################################
+auto_fan_config=`echo "$response" | jq '.result.auto_fan_config' --raw-output`
+if [[ ! -z ${auto_fan_config} ]] && [[ ${auto_fan_config} != "" ]] && [[ ${auto_fan_config} != "null" ]]; then
+    echo "auto_fan_config = ${auto_fan_config}"
+    ## 如果存在目录，则覆盖文件
+    if [[ -d /hive-config/ ]];  then
+        echo "$auto_fan_config" > /hive-config/autofan.conf
+    fi
+
+    ## 如果命令存在，则启动他
+    if [[ -f /hive/sbin/autofan ]]; then
+        screen -wipe autofan >/dev/null
+        session_count=`screen -ls autofan | grep -c ".autofan"`
+        if [[ $session_count -eq 0 ]]; then
+            systemctl restart hive.service
+        fi
+    fi
+fi
+
+
+##########################################################################################
 # Wallet config
 ##########################################################################################
 wallets_len=$(echo "$response" | jq '.result.wallet|length')
