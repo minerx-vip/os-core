@@ -118,6 +118,7 @@ stats(){
         if [[ ${IS_RUNNING} -eq 1 ]] && [[ ${STATS_FILE_EXISTS} == 1 ]]
         then
             [[ -f /hive/sbin/gpu-stats ]] && export gpu_stats=$(/hive/sbin/gpu-stats)
+            export GPU_STATS_JSON="$gpu_stats"
             # source h-manifest.conf; source h-config.sh; source h-stats.sh;
             if [[ ${wallet} == "qubminer" ]]
             then
