@@ -137,7 +137,6 @@ else
     hive_version=""
 fi
 
-
 ## 显卡数量
 gpu_count_amd=`/os/bin/gpu-count AMD`
 gpu_count_nvidia=`/os/bin/gpu-count NVIDIA`
@@ -151,7 +150,14 @@ if [[ ${gpu_count_nvidia} -gt 0 ]]; then
         gpus=$(gpu-check listjson NVIDIA 2>&1)
     else
         gpus=$(/os/bin/nvidia-json)
-    fi    
+    fi
+    
+    ## 验证 gpus 是否为合法的 JSON
+    echo "$gpus" | jq . >/dev/null 2>&1
+    if [[ $? -ne 0 ]]; then
+        ## 如果不是合法的 JSON，设置为默认值
+        gpus="[]"
+    fi
 fi
 
 ## 获取主机名
@@ -414,7 +420,7 @@ check_and_kill_screen() {
 
     # 检查是否找到 PID
     if [ -z "$SCREEN_PID" ]; then
-        echo "Error: Screen session '$SCREEN_NAME' not found."
+        # echo "Error: Screen session '$SCREEN_NAME' not found."
         return 1
     fi
 
