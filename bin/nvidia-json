@@ -135,6 +135,6 @@ JSON_ARRAY=${JSON_ARRAY%,}
 JSON_ARRAY+="]"
 
 # 输出 JSON 数组格式
-echo "$JSON_ARRAY" > /run/os/nvidia-json
-echo "$JSON_ARRAY"
+echo "$JSON_ARRAY" | tr -d '\t' > /run/os/nvidia-json
+echo "$JSON_ARRAY" | tr -d '\t' 
 
