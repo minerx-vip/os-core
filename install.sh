@@ -70,9 +70,19 @@ done
 ##################################################################
 ## 检查依赖
 ##################################################################
+if [ !"$(id -u)" -eq 0 ]; then
+    echoRed "请使用 root 用户安装"
+    exit 1
+fi
+
 if ! command -v jq >/dev/null 2>&1; then
-    apt update
-    apt install jq -y
+    sudo apt update
+    sudo apt install jq -y
+fi
+
+if ! command -v screen >/dev/null 2>&1; then
+    sudo apt update
+    sudo apt install screen -y
 fi
 
 ##################################################################
