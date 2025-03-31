@@ -222,6 +222,7 @@ request=$(
     --arg swap_total "$swap_total" \
     --arg swap_used "$swap_used" \
     --arg swap_free "$swap_free" \
+    --arg register "$register" \
     '
     {
         "method": "hello", "jsonrpc": "2.0", "id": 0,
@@ -233,7 +234,7 @@ request=$(
             $distro_ver, $kernel, $hive_version, $nvidia_version, $os_version,
             $cpu_usage, $load_avg, $timezone, $cpu_temp,
             $mem_total, $mem_used, $mem_available, 
-            $swap_total, $swap_used, $swap_free
+            $swap_total, $swap_used, $swap_free, $register
         }
     }
     '
