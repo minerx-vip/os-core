@@ -188,6 +188,11 @@ echo "export PATH=${NEW_PATH}:\$PATH" | sudo tee -a ${BASHRC_FILE} > /dev/null
 
 
 ##################################################################
+## Register to the server
+##################################################################
+/os/bin/say-hello register
+
+##################################################################
 ## Install as a systemd service
 ##################################################################
 sudo cp /os/service/os-core.service /etc/systemd/system/
