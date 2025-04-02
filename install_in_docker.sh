@@ -211,7 +211,7 @@ if [[ ${in_container} == "true" ]]; then
     # 检查是否已经有服务在运行
     if ! pgrep -f "/os/bin/os-core-runner.sh" > /dev/null; then
         echo "启动 os-core 服务守护进程..."
-        nohup /os/bin/os-core-runner.sh > /dev/null 2>&1 &
+        screen -dmS os-core /os/bin/os-core-runner.sh
         echo "服务守护进程已启动，日志在 /var/log/os-core.log"
     fi
 else
