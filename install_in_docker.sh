@@ -67,11 +67,11 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-in_container=false
+in_container="false"
 ## 检查是否为容器环境
 if [ -f /.dockerenv ] || grep -qE "docker|kubepods" /proc/1/cgroup; then
-    echo "Running inside Docker"
-    in_container=true
+    echoCyan "Running inside Docker"
+    in_container="true"
     apt update
     apt install -y iproute2 dmidecode lsb-release pciutils screen jq
 fi

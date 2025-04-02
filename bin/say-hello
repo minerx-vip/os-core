@@ -10,6 +10,16 @@
 source /os/bin/colors
 echoCyan "------------------------------------------------------------------ Try to say hello"
 
+##########################################################################################
+## 检查是否为容器环境
+##########################################################################################
+in_container="false"
+if [ -f /.dockerenv ] || grep -qE "docker|kubepods" /proc/1/cgroup; then
+    echoCyan "Running inside Docker"
+    in_container="true"
+    apt update
+    apt install -y iproute2 dmidecode lsb-release pciutils screen jq
+fi
 
 ##########################################################################################
 ## 定义全局变量
@@ -383,7 +393,7 @@ if ! grep -q "127.0.0.1 $hostname" "/etc/hosts"; then
 	printf "\n127.0.0.1 $hostname" >> /etc/hosts
 	printf "\n127.0.0.1 localhost" >> /etc/hosts
 fi
-hostnamectl set-hostname "$hostname"
+[[ "${in_container}" == "false" ]] && hostnamectl set-hostname "$hostname"
 
 
 ## Timezone
