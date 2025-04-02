@@ -393,12 +393,16 @@ else
 	hostname=worker #fallback hostname
 fi
 [[ $hostname =~ ^([0-9]+).* ]] && hostname="miner$worker_name" #echo "${BASH_REMATCH[1]}"
-sed -i '/^127.0.0.1/d' /etc/hosts
-if ! grep -q "127.0.0.1 $hostname" "/etc/hosts"; then
-	printf "\n127.0.0.1 $hostname" >> /etc/hosts
-	printf "\n127.0.0.1 localhost" >> /etc/hosts
+
+## 如果在容器中运行的话，跳过这些
+if [[ "${in_container}" == "false" ]]; then
+    sed -i '/^127.0.0.1/d' /etc/hosts
+    if ! grep -q "127.0.0.1 $hostname" "/etc/hosts"; then
+        printf "\n127.0.0.1 $hostname" >> /etc/hosts
+        printf "\n127.0.0.1 localhost" >> /etc/hosts
+        hostnamectl set-hostname "$hostname"
+    fi
 fi
-[[ "${in_container}" == "false" ]] && hostnamectl set-hostname "$hostname"
 
 
 ## Timezone
