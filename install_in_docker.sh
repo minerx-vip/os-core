@@ -239,19 +239,47 @@ if [[ ${in_container} == "true" ]]; then
     # 创建必要的目录
     mkdir -p /var/log/os/
 
+    # 创建循环脚本
+    echo "创建循环脚本..."
+    cat > /os/bin/os-core-loop.sh << 'EOF'
+#!/bin/bash
+
+# 创建日志目录
+mkdir -p /var/log/os/
+
+# 记录开始时间
+echo "$(date) - os-core-loop 启动" > /var/log/os/os-core-loop.log
+
+# 循环运行 os-core
+while true; do
+    echo "$(date) - 启动 os-core 服务..." >> /var/log/os/os-core-loop.log
+    if [ -x /os/bin/os-core ]; then
+        /os/bin/os-core >> /var/log/os/os-core-loop.log 2>&1
+        echo "$(date) - os-core 执行完成" >> /var/log/os/os-core-loop.log
+    else
+        echo "$(date) - /os/bin/os-core 不存在或没有执行权限" >> /var/log/os/os-core-loop.log
+    fi
+    echo "$(date) - 等待 5 分钟后再次运行" >> /var/log/os/os-core-loop.log
+    sleep 300
+done
+EOF
+
+    # 设置执行权限
+    chmod +x /os/bin/os-core-loop.sh
+    
     # 创建 supervisor 配置文件
     echo "创建 supervisor 配置..."
     mkdir -p /etc/supervisor/conf.d/
     
     cat > /etc/supervisor/conf.d/os-core.conf << 'EOF'
-[program:os-core]
-command=/os/bin/os-core
+[program:os-core-loop]
+command=/os/bin/os-core-loop.sh
 directory=/os
 autostart=true
 autorestart=true
 startretries=3
 redirect_stderr=true
-stdout_logfile=/var/log/os/os-core.log
+stdout_logfile=/var/log/os/supervisor-os-core.log
 stdout_logfile_maxbytes=10MB
 stdout_logfile_backups=5
 stopasgroup=true
@@ -282,12 +310,12 @@ EOF
     supervisorctl reread || echo "无法读取配置，可能需要手动启动 supervisord"
     supervisorctl update || echo "无法更新配置，可能需要手动启动 supervisord"
     # 尝试启动服务
-    echo "尝试启动 os-core 服务..."
-    supervisorctl start os-core || echo "无法启动 os-core，可能需要手动检查 supervisor 状态"
+    echo "尝试启动 os-core-loop 服务..."
+    supervisorctl start os-core-loop || echo "无法启动 os-core-loop，可能需要手动检查 supervisor 状态"
     
     # 尝试显示状态
     echo "尝试显示服务状态："
-    supervisorctl status os-core || echo "无法获取状态，请手动检查 supervisor 是否正常运行"
+    supervisorctl status os-core-loop || echo "无法获取状态，请手动检查 supervisor 是否正常运行"
 else
     cp /os/service/os-core.service /etc/systemd/system/
     systemctl daemon-reload
