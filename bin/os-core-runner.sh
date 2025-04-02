@@ -6,11 +6,26 @@ source /os/bin/colors
 # 创建必要的目录
 mkdir -p /var/log/os/
 
-# 检查是否已有 os-core-master 会话
-is_running=$(screen -ls | grep os-core-master | wc -l)
-if [[ ${is_running} -gt 0 ]]; then
-    echoCyan "os-core-master 已经在运行中，不需要再次启动"
-    exit 0
+# 清理所有 Dead 状态的 screen 会话
+echoCyan "清理旧的 screen 会话..."
+screen -wipe > /dev/null 2>&1
+
+# 清理所有现有的 os-core-master 会话
+if screen -ls | grep -q "os-core-master"; then
+    echoCyan "结束旧的 os-core-master 会话..."
+    screen -S "os-core-master" -X quit > /dev/null 2>&1
+    sleep 1
+fi
+
+# 清理所有现有的 say-hello 和 say-stats 会话
+if screen -ls | grep -q "say-hello"; then
+    echoCyan "结束旧的 say-hello 会话..."
+    screen -S "say-hello" -X quit > /dev/null 2>&1
+fi
+
+if screen -ls | grep -q "say-stats"; then
+    echoCyan "结束旧的 say-stats 会话..."
+    screen -S "say-stats" -X quit > /dev/null 2>&1
 fi
 
 # 创建一个新的 screen 会话
