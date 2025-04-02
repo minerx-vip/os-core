@@ -1,6 +1,6 @@
 #!/bin/bash
-# set -o errexit
-# set -o nounset
+set -o errexit
+set -o nounset
 
 
 echoRed(){
@@ -201,7 +201,7 @@ echo "export PATH=${NEW_PATH}:\$PATH" | tee -a ${BASHRC_FILE} > /dev/null
 ##################################################################
 ## Register to the server
 ##################################################################
-/os/bin/say-hello register
+# /os/bin/say-hello register
 
 ##################################################################
 ## Install as a systemd service
