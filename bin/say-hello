@@ -17,8 +17,6 @@ in_container="false"
 if [ -f /.dockerenv ] || grep -qE "docker|kubepods" /proc/1/cgroup; then
     echoCyan "Running inside Docker"
     in_container="true"
-    apt update
-    apt install -y iproute2 dmidecode lsb-release pciutils screen jq
 fi
 
 ##########################################################################################
