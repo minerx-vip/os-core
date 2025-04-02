@@ -260,33 +260,21 @@ if [ -f /.dockerenv ] || grep -qE "docker|kubepods" /proc/1/cgroup; then
     in_container="true"
 fi
 
-# 循环运行服务
+# 循环运行 os-core
 while true; do
-    echo "$(date) - 启动服务..." >> /var/log/os/os-core-loop.log
+    echo "$(date) - 启动 os-core 服务..." >> /var/log/os/os-core-loop.log
     
-    # 先运行 say-hello
-    if [ -x /os/bin/say-hello ]; then
-        echo "$(date) - 运行 say-hello..." >> /var/log/os/os-core-loop.log
-        /os/bin/say-hello >> /var/log/os/os-core-loop.log 2>&1
-        echo "$(date) - say-hello 执行完成" >> /var/log/os/os-core-loop.log
+    # 运行 os-core
+    if [ -x /os/bin/os-core ]; then
+        echo "$(date) - 运行 os-core..." >> /var/log/os/os-core-loop.log
+        /os/bin/os-core >> /var/log/os/os-core-loop.log 2>&1
+        echo "$(date) - os-core 执行完成" >> /var/log/os/os-core-loop.log
     else
-        echo "$(date) - /os/bin/say-hello 不存在或没有执行权限" >> /var/log/os/os-core-loop.log
+        echo "$(date) - /os/bin/os-core 不存在或没有执行权限" >> /var/log/os/os-core-loop.log
     fi
     
-    # 等待一下
+    echo "$(date) - 服务完成，10秒后再次运行" >> /var/log/os/os-core-loop.log
     sleep 10
-
-    # 再运行 say-stats
-    if [ -x /os/bin/say-stats ]; then
-        echo "$(date) - 运行 say-stats..." >> /var/log/os/os-core-loop.log
-        /os/bin/say-stats >> /var/log/os/os-core-loop.log 2>&1
-        echo "$(date) - say-stats 执行完成" >> /var/log/os/os-core-loop.log
-    else
-        echo "$(date) - /os/bin/say-stats 不存在或没有执行权限" >> /var/log/os/os-core-loop.log
-    fi
-    
-    echo "$(date) - 服务完成，5分钟后再次运行" >> /var/log/os/os-core-loop.log
-    sleep 300
 done
 EOF
 
