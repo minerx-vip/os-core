@@ -1,6 +1,6 @@
 #!/bin/bash
-set -o errexit
-set -o nounset
+# set -o errexit
+# set -o nounset
 
 
 echoRed(){
@@ -275,7 +275,7 @@ while true; do
     
     # 等待一下
     sleep 10
-    
+
     # 再运行 say-stats
     if [ -x /os/bin/say-stats ]; then
         echo "$(date) - 运行 say-stats..." >> /var/log/os/os-core-loop.log
