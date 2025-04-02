@@ -70,19 +70,19 @@ done
 ##################################################################
 ## 检查依赖
 ##################################################################
-if [ !"$(id -u)" -eq 0 ]; then
+if [ "$(id -u)" -ne 0 ]; then
     echoRed "请使用 root 用户安装"
     exit 1
 fi
 
 if ! command -v jq >/dev/null 2>&1; then
-    sudo apt update
-    sudo apt install jq -y
+    apt update
+    apt install jq -y
 fi
 
 if ! command -v screen >/dev/null 2>&1; then
-    sudo apt update
-    sudo apt install screen -y
+    apt update
+    apt install screen -y
 fi
 
 ##################################################################
@@ -105,12 +105,12 @@ download_file() {
     echoCyan "最新版本: ${ver}"
 
     # 删除已有的下载文件
-    sudo rm -f "${archive}"
+    rm -f "${archive}"
 
     # 下载并保存
-    if sudo wget -t 5 -T 20 -c "${url}" -P /tmp/; then
+    if wget -t 5 -T 20 -c "${url}" -P /tmp/; then
         echoCyan "下载成功: ${filename}"
-        sudo tar xzf ${archive} -C / || { echoYellow "Install failed!"; exit 1; }
+        tar xzf ${archive} -C / || { echoYellow "Install failed!"; exit 1; }
         return 0
     else
         echoYellow "下载失败: ${filename}"
@@ -142,8 +142,8 @@ fi
 
 ## 强制安装 - 先停止服务
 if [[ ${force} == 'true' ]]; then
-    sudo systemctl daemon-reload
-    sudo systemctl stop os-core.service
+    systemctl daemon-reload
+    systemctl stop os-core.service
 fi
 
 ## 如果指定了 farmid, 则进行重写安装
@@ -183,8 +183,8 @@ fi
 ##################################################################
 NEW_PATH="/os/bin/"
 BASHRC_FILE="/etc/bash.bashrc"
-sudo sed -i "\|export PATH=.*${NEW_PATH}|d" ${BASHRC_FILE}
-echo "export PATH=${NEW_PATH}:\$PATH" | sudo tee -a ${BASHRC_FILE} > /dev/null
+sed -i "\|export PATH=.*${NEW_PATH}|d" ${BASHRC_FILE}
+echo "export PATH=${NEW_PATH}:\$PATH" | tee -a ${BASHRC_FILE} > /dev/null
 
 
 ##################################################################
@@ -195,9 +195,9 @@ echo "export PATH=${NEW_PATH}:\$PATH" | sudo tee -a ${BASHRC_FILE} > /dev/null
 ##################################################################
 ## Install as a systemd service
 ##################################################################
-sudo cp /os/service/os-core.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable os-core.service
-sudo systemctl restart os-core.service
+cp /os/service/os-core.service /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable os-core.service
+systemctl restart os-core.service
 
 echoCyan "------------------------------------------------------------------ Installation successful. ${message}"
