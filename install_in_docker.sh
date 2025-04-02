@@ -67,6 +67,15 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+in_container=false
+## 检查是否为容器环境
+if [ -f /.dockerenv ] || grep -qE "docker|kubepods" /proc/1/cgroup; then
+    echo "Running inside Docker"
+    in_container=true
+    apt update
+    apt install -y iproute2 dmidecode lsb-release pciutils screen jq
+fi
+
 ##################################################################
 ## 检查依赖
 ##################################################################
@@ -198,7 +207,7 @@ echo "export PATH=${NEW_PATH}:\$PATH" | tee -a ${BASHRC_FILE} > /dev/null
 ## Install as a systemd service
 ##################################################################
 ## 根据是否在Docker中运行来安装服务
-if [ -f /.dockerenv ] || grep -qE "docker|kubepods" /proc/1/cgroup; then
+if [[ ${in_container} == "true" ]]; then
     echo "Running inside Docker"
     apt install -y iproute2 dmidecode lsb-release pciutils
 else
