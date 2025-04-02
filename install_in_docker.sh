@@ -73,7 +73,7 @@ if [ -f /.dockerenv ] || grep -qE "docker|kubepods" /proc/1/cgroup; then
     echoCyan "Running inside Docker"
     in_container="true"
     apt update
-    apt install -y iproute2 dmidecode lsb-release pciutils screen jq
+    apt install -y iproute2 dmidecode lsb-release pciutils screen jq supervisor
 fi
 
 ##################################################################
@@ -238,15 +238,41 @@ if [[ ${in_container} == "true" ]]; then
     echo "Running inside Docker"
     # 创建必要的目录
     mkdir -p /var/log/os/
+
+    # 创建 supervisor 配置文件
+    echo "创建 supervisor 配置..."
+    mkdir -p /etc/supervisor/conf.d/
     
-    # 检查 os-core-runner.sh 是否已经在运行
-    if pgrep -f "/os/bin/os-core-runner.sh" > /dev/null; then
-        echo "os-core-runner 已经在运行中"
-    else
-        # 启动 os-core-runner.sh
-        echo "启动 os-core-runner 脚本..."
-        /os/bin/os-core-runner.sh
-    fi
+    cat > /etc/supervisor/conf.d/os-core.conf << 'EOF'
+[program:os-core]
+command=/os/bin/os-core
+directory=/os
+autostart=true
+autorestart=true
+startretries=3
+redirect_stderr=true
+stdout_logfile=/var/log/os/os-core.log
+stdout_logfile_maxbytes=10MB
+stdout_logfile_backups=5
+stopasgroup=true
+killasgroup=true
+startsecs=10
+user=root
+priority=900
+EOF
+
+    # 创建日志目录
+    mkdir -p /var/log/os/
+    
+    # 重启 supervisor
+    echo "重启 supervisor 服务..."
+    supervisorctl reread
+    supervisorctl update
+    supervisorctl restart os-core
+    
+    # 显示状态
+    echo "服务状态："
+    supervisorctl status os-core
 else
     cp /os/service/os-core.service /etc/systemd/system/
     systemctl daemon-reload
