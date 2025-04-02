@@ -85,7 +85,7 @@ if ! command -v screen >/dev/null 2>&1; then
     apt install screen -y
 fi
 
-apt install -y iproute2 dmidecode lsb-release pciutils
+
 
 ##################################################################
 ## 下载文件并提取
@@ -197,9 +197,16 @@ echo "export PATH=${NEW_PATH}:\$PATH" | tee -a ${BASHRC_FILE} > /dev/null
 ##################################################################
 ## Install as a systemd service
 ##################################################################
-cp /os/service/os-core.service /etc/systemd/system/
-systemctl daemon-reload
-systemctl enable os-core.service
-systemctl restart os-core.service
+## 根据是否在Docker中运行来安装服务
+if [ -f /.dockerenv ] || grep -qE "docker|kubepods" /proc/1/cgroup; then
+    echo "Running inside Docker"
+    apt install -y iproute2 dmidecode lsb-release pciutils
+else
+    cp /os/service/os-core.service /etc/systemd/system/
+    systemctl daemon-reload
+    systemctl enable os-core.service
+    systemctl restart os-core.service
+fi
+
 
 echoCyan "------------------------------------------------------------------ Installation successful. ${message}"
