@@ -208,12 +208,37 @@ echo "export PATH=${NEW_PATH}:\$PATH" | tee -a ${BASHRC_FILE} > /dev/null
 ##################################################################
 ## 根据是否在Docker中运行来安装服务
 if [[ ${in_container} == "true" ]]; then
-    # 检查是否已经有服务在运行
-    if ! pgrep -f "/os/bin/os-core-runner.sh" > /dev/null; then
-        echo "启动 os-core 服务守护进程..."
-        screen -dmS os-core /os/bin/os-core-runner.sh
-        echo "服务守护进程已启动，日志在 /var/log/os-core.log"
+    echo "Running inside Docker"
+    # 创建必要的目录
+    mkdir -p /var/log/os/
+    
+    # 检查 os-core-runner.sh 是否已经在运行
+    if pgrep -f "/os/bin/os-core-runner.sh" > /dev/null; then
+        echo "os-core-runner 已经在运行中"
+    else
+        # 启动 os-core-runner.sh
+        echo "启动 os-core-runner 脚本..."
+        chmod +x /os/bin/os-core-runner.sh
+        nohup /os/bin/os-core-runner.sh > /var/log/os/os-core-runner.log 2>&1 &
+        
+        # 等待几秒，给脚本启动的时间
+        sleep 5
+        
+        # 检查服务是否启动成功
+        if screen -ls | grep -q "os-core-master"; then
+            echo "os-core-master 会话创建成功"
+        else
+            echo "警告：os-core-master 会话创建可能失败，请检查日志"
+        fi
+        
+        if screen -ls | grep -q "say-hello"; then
+            echo "say-hello 服务启动成功"
+        else
+            echo "警告：say-hello 服务启动可能失败，请检查日志"
+        fi
     fi
+    
+    echo "日志文件位于 /var/log/os/ 目录下"
 else
     cp /os/service/os-core.service /etc/systemd/system/
     systemctl daemon-reload
