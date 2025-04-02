@@ -218,27 +218,8 @@ if [[ ${in_container} == "true" ]]; then
     else
         # 启动 os-core-runner.sh
         echo "启动 os-core-runner 脚本..."
-        chmod +x /os/bin/os-core-runner.sh
-        nohup /os/bin/os-core-runner.sh > /var/log/os/os-core-runner.log 2>&1 &
-        
-        # 等待几秒，给脚本启动的时间
-        sleep 5
-        
-        # 检查服务是否启动成功
-        if screen -ls | grep -q "os-core-master"; then
-            echo "os-core-master 会话创建成功"
-        else
-            echo "警告：os-core-master 会话创建可能失败，请检查日志"
-        fi
-        
-        if screen -ls | grep -q "say-hello"; then
-            echo "say-hello 服务启动成功"
-        else
-            echo "警告：say-hello 服务启动可能失败，请检查日志"
-        fi
+        /os/bin/os-core-runner.sh
     fi
-    
-    echo "日志文件位于 /var/log/os/ 目录下"
 else
     cp /os/service/os-core.service /etc/systemd/system/
     systemctl daemon-reload
