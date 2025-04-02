@@ -264,15 +264,30 @@ EOF
     # 创建日志目录
     mkdir -p /var/log/os/
     
-    # 重启 supervisor
-    echo "重启 supervisor 服务..."
-    supervisorctl reread
-    supervisorctl update
-    supervisorctl restart os-core
+    # 启动 supervisor 服务
+    echo "启动 supervisor 服务..."
+    if [ -f /etc/init.d/supervisor ]; then
+        /etc/init.d/supervisor start || true
+    else
+        service supervisor start || true
+        # 如果上面的方法失败，尝试直接启动 supervisord
+        supervisord -c /etc/supervisor/supervisord.conf || true
+    fi
     
-    # 显示状态
-    echo "服务状态："
-    supervisorctl status os-core
+    # 等待几秒，确保服务启动
+    sleep 3
+    
+    # 重新加载配置
+    echo "加载 supervisor 配置..."
+    supervisorctl reread || echo "无法读取配置，可能需要手动启动 supervisord"
+    supervisorctl update || echo "无法更新配置，可能需要手动启动 supervisord"
+    # 尝试启动服务
+    echo "尝试启动 os-core 服务..."
+    supervisorctl start os-core || echo "无法启动 os-core，可能需要手动检查 supervisor 状态"
+    
+    # 尝试显示状态
+    echo "尝试显示服务状态："
+    supervisorctl status os-core || echo "无法获取状态，请手动检查 supervisor 是否正常运行"
 else
     cp /os/service/os-core.service /etc/systemd/system/
     systemctl daemon-reload
