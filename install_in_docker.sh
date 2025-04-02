@@ -209,7 +209,7 @@ echo "export PATH=${NEW_PATH}:\$PATH" | tee -a ${BASHRC_FILE} > /dev/null
 ## 根据是否在Docker中运行来安装服务
 if [[ ${in_container} == "true" ]]; then
     echo "Running inside Docker"
-    apt install -y iproute2 dmidecode lsb-release pciutils
+    source "${BASHRC_FILE}"
 else
     cp /os/service/os-core.service /etc/systemd/system/
     systemctl daemon-reload
