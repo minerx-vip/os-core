@@ -63,7 +63,6 @@ fi
 ##########################################################################################
 ## 基本信息获取
 ##########################################################################################
-
 ## IP 信息
 ips=( $(hostname -I) )
 ips_json=`printf '%s\n' "${ips[@]}" | jq -R . | jq -s -c .`
@@ -95,7 +94,15 @@ mb_bios_date=`cat /sys/class/dmi/id/bios_date 2>/dev/null` && mb_bios="$mb_bios 
 cpu_model=`lscpu | grep "Model name:" | sed 's/Model name:[ \t]*//g'`
 cpu_cores=`lscpu | grep "^CPU(s):" | sed 's/CPU(s):[ \t]*//g'`
 aes=`lscpu | grep "^Flags:.*aes" | wc -l`
-cpu_id=`dmidecode -t 4 | grep ID | sed 's/.*ID://;s/ //g'`
+
+# 容器中运行的话，需要执行不同的逻辑
+if [[ ${in_container} == "true" ]]; then
+    # 在容器中使用替代方法或设置默认值
+    cpu_id=$(cat /proc/cpuinfo | grep "processor" | head -1 | awk '{print $3}' || echo "container-cpu")
+else
+    cpu_id=`dmidecode -t 4 | grep ID | sed 's/.*ID://;s/ //g'`
+fi
+
 
 # ## 磁盘信息 - 性能问题，暂时屏蔽
 # if [[ ! -f /hive-config/.DISKLESS_AMD ]]; then
