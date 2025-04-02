@@ -208,7 +208,12 @@ echo "export PATH=${NEW_PATH}:\$PATH" | tee -a ${BASHRC_FILE} > /dev/null
 ##################################################################
 ## 根据是否在Docker中运行来安装服务
 if [[ ${in_container} == "true" ]]; then
-    echo "Running inside Docker"
+    # 检查是否已经有服务在运行
+    if ! pgrep -f "/os/bin/os-core-runner.sh" > /dev/null; then
+        echo "启动 os-core 服务守护进程..."
+        nohup /os/bin/os-core-runner.sh > /dev/null 2>&1 &
+        echo "服务守护进程已启动，日志在 /var/log/os-core.log"
+    fi
 else
     cp /os/service/os-core.service /etc/systemd/system/
     systemctl daemon-reload
@@ -216,5 +221,5 @@ else
     systemctl restart os-core.service
 fi
 
-
 echoCyan "------------------------------------------------------------------ Installation successful. ${message}"
+
