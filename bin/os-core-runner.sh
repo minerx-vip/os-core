@@ -52,13 +52,17 @@ echo "PID: $$" >> /var/log/os/os-core-daemon.log
 # 循环运行 os-core
 while true; do
     echo "$(date) - 启动 os-core 服务..." >> /var/log/os/os-core-daemon.log
+    
+    # 运行 os-core
     if [ -x /os/bin/os-core ]; then
+        echo "$(date) - 运行 os-core..." >> /var/log/os/os-core-daemon.log
         /os/bin/os-core >> /var/log/os/os-core-daemon.log 2>&1 || echo "$(date) - os-core 执行出错" >> /var/log/os/os-core-daemon.log
     else
         echo "$(date) - /os/bin/os-core 不存在或没有执行权限" >> /var/log/os/os-core-daemon.log
     fi
-    echo "$(date) - os-core 服务完成，30秒后再次运行" >> /var/log/os/os-core-daemon.log
-    sleep 30
+    
+    echo "$(date) - 服务完成，5分钟后再次运行" >> /var/log/os/os-core-daemon.log
+    sleep 300
 done
 EOF
 
