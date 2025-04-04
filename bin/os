@@ -261,6 +261,20 @@ auto(){
     done
 }
 
+####################################################################################
+## 查看日志
+####################################################################################
+logs(){
+    s=$(screen -ls | grep os_miner_ | awk '{print $1}' | cut -d. -f2-)
+    echoCyan "Use the following command to view the logs (使用以下命令查看日志):"
+    for i in ${s}; do
+        echoYellow "screen -r ${i}"
+    done
+    echo
+    echoCyan "To exit the viewing session, use Ctrl + A, then D to detach from the screen"
+    echoCyan "如果要结束查看并返回后台，请按下 Ctrl + A，然后再按 D，即可退出 screen 会话而不关闭程序"
+    echo
+}
 
 ####################################################################################
 ## 入口
@@ -311,5 +325,8 @@ case ${tag} in
     ;;
     auto)
         auto
+    ;;
+    logs)
+        logs
     ;;
 esac

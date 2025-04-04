@@ -16,43 +16,49 @@ check_say_service(){
             echo "Killing hanged miners screen session queries" &&
             pkill -f " -S ${session_name} "
     fi
-    screen -wipe ${session_name} >/dev/null
+    screen -wipe >/dev/null 2>&1
 
-
-    ## 如果日志文件超过1分钟没有更新, 则结束现有的以便重新启动
-    session_log_path="/var/log/os/${session_name}.log"
-    mkdir -p /var/log/os/
-    local current_time=$(date +%s)
-    # 获取文件最后修改时间戳
-    local file_mod_time=$(stat -c %Y "$session_log_path")
-    # 计算文件最后修改时间与当前时间的差值（单位：秒）
-    local time_diff=$((current_time - file_mod_time))
-    if [[ $time_diff -gt 60 ]]
-    then
-        screen -S ${session_name} -X quit
+    ## 检查是否已经存在该会话，如果存在则结束
+    if screen -ls | grep -q "${session_name}"; then
+        echoCyan "结束旧的 ${session_name} 会话..."
+        screen -S "${session_name}" -X quit > /dev/null 2>&1
+        sleep 1
     fi
 
+    ## 创建日志目录
+    session_log_path="/var/log/os/${session_name}.log"
+    mkdir -p /var/log/os/
+
+    ## 检查是否为容器环境
+    in_container="false"
+    if [ -f /.dockerenv ] || grep -qE "docker|kubepods" /proc/1/cgroup; then
+        echoCyan "Running inside Docker - ${session_name}"
+        in_container="true"
+    fi
 
     ## 判断是否要启动新的
-    is_running=$(screen -ls | grep ${session_name} | wc -l)
-    if [[ ${is_running} -eq 0 ]]; then
-        echoYellow "[say-hello] is not running, it will start…"
+    echoYellow "[${session_name}] is not running, it will start…"
 
-        ## 启动一个空的会话
-        screen -S "${session_name}" -dm -c /os/etc/screenrc.miner
+    ## 删除过期日志
+    rm -f "${session_log_path}"
 
-        ## 删除过期日志
-        rm -f "${session_log_path}"
+    ## 启动一个空的会话
+    screen -S "${session_name}" -dm -c /os/etc/screenrc.miner
 
-        ## 启用日志功能
-        screen -S "${session_name}" -X logfile "${session_log_path}"
-        screen -S "${session_name}" -X log on
+    ## 启用日志功能
+    screen -S "${session_name}" -X logfile "${session_log_path}"
+    screen -S "${session_name}" -X log on
 
-        ## 启动命令
-        shell="while true; do /os/bin/${session_name}; sleep 10; done"
-        screen -S "${session_name}" -X screen bash -c "${shell}"
-    else
+    ## 启动命令
+    shell="while true; do /os/bin/${session_name}; sleep 10; done"
+    screen -S "${session_name}" -X screen bash -c "${shell}"
+
+    ## 检查是否启动成功
+    sleep 2
+    if screen -ls | grep -q "${session_name}"; then
         echoCyan "[${session_name}] is running"
+    else
+        echoRed "[${session_name}] failed to start"
     fi
 }
 
