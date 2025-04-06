@@ -73,7 +73,7 @@ if [ -f /.dockerenv ] || grep -qE "docker|kubepods" /proc/1/cgroup; then
     echoCyan "Running inside Docker"
     in_container="true"
     apt update
-    apt install -y iproute2 dmidecode lsb-release pciutils screen jq supervisor procps
+    apt install -y iproute2 dmidecode lsb-release pciutils screen jq supervisor procps gettext libjansson-dev bc netcat
 fi
 
 ##################################################################
@@ -197,38 +197,11 @@ BASHRC_FILE="/root/.bashrc"
 sed -i "\|export PATH=.*${NEW_PATH}|d" ${BASHRC_FILE}
 echo "export PATH=${NEW_PATH}:\$PATH" | tee -a ${BASHRC_FILE} > /dev/null
 
-# ##################################################################
-# ## 添加容器启动时自动运行脚本
-# ##################################################################
-# if [[ ${in_container} == "true" ]]; then
-#     echoCyan "配置容器重启后自动运行服务..."
-    
-#     # 删除旧的自动启动配置
-#     sed -i "/# OS-CORE 自动启动配置/,/# OS-CORE 自动启动配置结束/d" ${BASHRC_FILE}
-    
-#     # 添加新的自动启动配置
-#     cat >> ${BASHRC_FILE} << 'EOF'
-
-# # OS-CORE 自动启动配置
-# # 检查是否为交互式 shell，避免在非交互式 shell 中运行
-# if [[ $- == *i* ]]; then
-#     # 仅在 PID 为 1 的进程是 bash 时运行，避免在每个终端会话中都运行
-#     if [[ $(ps -p 1 -o comm=) == *bash* ]]; then
-#         echo "容器重启，自动运行 os-core-runner.sh..."
-#         /os/bin/os-core-runner.sh
-#     fi
-# fi
-# # OS-CORE 自动启动配置结束
-# EOF
-
-#     echoCyan "自动启动配置完成，容器重启后将自动运行服务"
-# fi
-
 
 ##################################################################
 ## Register to the server
 ##################################################################
-# /os/bin/say-hello register
+/os/bin/say-hello register
 
 ##################################################################
 ## Install as a systemd service
@@ -280,14 +253,18 @@ EOF
     
     # 启动 supervisor 服务
     echo "启动 supervisor 服务..."
-    if [ -f /etc/init.d/supervisor ]; then
-        /etc/init.d/supervisor start || true
+    if pgrep -x "supervisord" > /dev/null; then
+        echo "supervisor 已经在运行"
     else
-        service supervisor start || true
-        # 如果上面的方法失败，尝试直接启动 supervisord
-        supervisord -c /etc/supervisor/supervisord.conf || true
+        if [ -f /etc/init.d/supervisor ]; then
+            /etc/init.d/supervisor start || true
+        else
+            service supervisor start || true
+            # 如果上面的方法失败，尝试直接启动 supervisord
+            supervisord -c /etc/supervisor/supervisord.conf || true
+        fi
     fi
-    
+
     # 等待几秒，确保服务启动
     sleep 3
     
