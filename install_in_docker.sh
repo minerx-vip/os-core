@@ -297,8 +297,8 @@ EOF
     supervisorctl update || echo "无法更新配置，可能需要手动启动 supervisord"
 
     ## 设置 supervisor 自动启动
-    echo 'pgrep supervisord >/dev/null || /usr/bin/supervisord -c /etc/supervisor/supervisord.conf' >> /etc/rc.local
-
+    sed -i "/^pgrep supervisord/d" /root/.bashrc
+    echo 'pgrep supervisord >/dev/null || /usr/bin/supervisord -c /etc/supervisor/supervisord.conf' >> /root/.bashrc
 
     # # 尝试启动服务
     # echo "尝试启动 say-hello 服务..."
