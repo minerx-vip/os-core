@@ -67,8 +67,14 @@ fi
 ips=( $(hostname -I) )
 ips_json=`printf '%s\n' "${ips[@]}" | jq -R . | jq -s -c .`
 net_interfaces=`ip -o link | grep -vE 'LOOPBACK|POINTOPOINT|sit0|can0|docker|sonm|ifb|veth' | sed 's/altname.*//' | awk '{  printf "{\"iface\": \"%s\", \"mac\": \"%s\"}\n", substr($2, 1, length($2)-1), $(NF-2)  }' | jq -sc .`
-lan_addresses=(`ip -o -f inet addr show | grep eth0 | awk '/scope global/ {print $4}'`)
-lan_gateway=`ip route | awk '/default/ && /eth0/ { print $3 }' | head -1`
+
+## 调整内网 IP 获取方式
+# lan_addresses=(`ip -o -f inet addr show | grep eth0 | awk '/scope global/ {print $4}'`)
+# lan_gateway=`ip route | awk '/default/ && /eth0/ { print $3 }' | head -1`
+DEFAULT_IFACE=$(ip route | awk '/default/ {print $5}' | head -1)
+lan_addresses=(`ip -o -f inet addr show | grep $DEFAULT_IFACE | awk '/scope global/ {print $4}'`)
+lan_gateway=`ip route | awk '/default/ && /'$DEFAULT_IFACE'/ { print $3 }' | head -1`
+
 
 lan_dns=""
 [[ -f /etc/resolv.conf ]] && lan_dns=`grep -m1 ^nameserver /etc/resolv.conf | awk '{print $2}'`
