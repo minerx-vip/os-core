@@ -73,7 +73,7 @@ if [ -f /.dockerenv ] || grep -qE "docker|kubepods" /proc/1/cgroup; then
     echoCyan "Running inside Docker"
     in_container="true"
     apt update
-    apt install -y iproute2 dmidecode lsb-release pciutils screen jq supervisor
+    apt install -y iproute2 dmidecode lsb-release pciutils screen jq supervisor procps
 fi
 
 ##################################################################
@@ -197,32 +197,32 @@ BASHRC_FILE="/etc/bash.bashrc"
 sed -i "\|export PATH=.*${NEW_PATH}|d" ${BASHRC_FILE}
 echo "export PATH=${NEW_PATH}:\$PATH" | tee -a ${BASHRC_FILE} > /dev/null
 
-##################################################################
-## 添加容器启动时自动运行脚本
-##################################################################
-if [[ ${in_container} == "true" ]]; then
-    echoCyan "配置容器重启后自动运行服务..."
+# ##################################################################
+# ## 添加容器启动时自动运行脚本
+# ##################################################################
+# if [[ ${in_container} == "true" ]]; then
+#     echoCyan "配置容器重启后自动运行服务..."
     
-    # 删除旧的自动启动配置
-    sed -i "/# OS-CORE 自动启动配置/,/# OS-CORE 自动启动配置结束/d" ${BASHRC_FILE}
+#     # 删除旧的自动启动配置
+#     sed -i "/# OS-CORE 自动启动配置/,/# OS-CORE 自动启动配置结束/d" ${BASHRC_FILE}
     
-    # 添加新的自动启动配置
-    cat >> ${BASHRC_FILE} << 'EOF'
+#     # 添加新的自动启动配置
+#     cat >> ${BASHRC_FILE} << 'EOF'
 
-# OS-CORE 自动启动配置
-# 检查是否为交互式 shell，避免在非交互式 shell 中运行
-if [[ $- == *i* ]]; then
-    # 仅在 PID 为 1 的进程是 bash 时运行，避免在每个终端会话中都运行
-    if [[ $(ps -p 1 -o comm=) == *bash* ]]; then
-        echo "容器重启，自动运行 os-core-runner.sh..."
-        /os/bin/os-core-runner.sh
-    fi
-fi
-# OS-CORE 自动启动配置结束
-EOF
+# # OS-CORE 自动启动配置
+# # 检查是否为交互式 shell，避免在非交互式 shell 中运行
+# if [[ $- == *i* ]]; then
+#     # 仅在 PID 为 1 的进程是 bash 时运行，避免在每个终端会话中都运行
+#     if [[ $(ps -p 1 -o comm=) == *bash* ]]; then
+#         echo "容器重启，自动运行 os-core-runner.sh..."
+#         /os/bin/os-core-runner.sh
+#     fi
+# fi
+# # OS-CORE 自动启动配置结束
+# EOF
 
-    echoCyan "自动启动配置完成，容器重启后将自动运行服务"
-fi
+#     echoCyan "自动启动配置完成，容器重启后将自动运行服务"
+# fi
 
 
 ##################################################################
@@ -295,11 +295,12 @@ EOF
     echo "加载 supervisor 配置..."
     supervisorctl reread || echo "无法读取配置，可能需要手动启动 supervisord"
     supervisorctl update || echo "无法更新配置，可能需要手动启动 supervisord"
-    # 尝试启动服务
-    echo "尝试启动 say-hello 服务..."
-    supervisorctl start say-hello || echo "无法启动 say-hello，可能需要手动检查 supervisor 状态"
-    echo "尝试启动 say-stats 服务..."
-    supervisorctl start say-stats || echo "无法启动 say-stats，可能需要手动检查 supervisor 状态"
+
+    # # 尝试启动服务
+    # echo "尝试启动 say-hello 服务..."
+    # supervisorctl start say-hello || echo "无法启动 say-hello，可能需要手动检查 supervisor 状态"
+    # echo "尝试启动 say-stats 服务..."
+    # supervisorctl start say-stats || echo "无法启动 say-stats，可能需要手动检查 supervisor 状态"
 else
     cp /os/service/os-core.service /etc/systemd/system/
     systemctl daemon-reload
