@@ -112,7 +112,7 @@ start() {
     ${shell}
 
     # 关闭 bash 窗口 #0
-    screen -S ${session_name} -p bash -X stuff 'exit\n'
+    # screen -S ${session_name} -p bash -X stuff 'exit\n'
 
     return 0
 }
