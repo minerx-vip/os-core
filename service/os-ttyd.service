@@ -1,0 +1,11 @@
+[Unit]
+Description=os-ttyd service
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=5
+ExecStart=/os/bin/ttyd -p 4200 -m 5 -d 4 -O login
+
+[Install]
+WantedBy=multi-user.target
