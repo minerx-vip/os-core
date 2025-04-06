@@ -85,7 +85,7 @@ if ! command -v screen >/dev/null 2>&1; then
     apt install screen -y
 fi
 
-apt install -y iproute2 dmidecode lsb-release pciutils
+# apt install -y iproute2 dmidecode lsb-release pciutils
 
 ##################################################################
 ## 下载文件并提取
