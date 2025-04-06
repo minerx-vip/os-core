@@ -48,12 +48,12 @@ download_file() {
     local uri=$1
 
     # 删除已有的下载文件
-    sudo rm -f "${archive}"
+    rm -f "${archive}"
 
     # 下载并保存
-    if sudo wget -t 2 -T 20 -c "${uri}/${filename}" -P /tmp/; then
+    if wget -t 2 -T 20 -c "${uri}/${filename}" -P /tmp/; then
         echoCyan "下载成功: ${filename}"
-        sudo tar xf ${archive} -C /usr/local/bin/ || { echoYellow "Install failed!"; exit 1; }
+        tar xf ${archive} -C /usr/local/bin/ || { echoYellow "Install failed!"; exit 1; }
         return 0
     else
         echoYellow "下载失败: ${filename}"

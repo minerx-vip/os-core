@@ -195,7 +195,7 @@ echo "export PATH=${NEW_PATH}:\$PATH" | tee -a ${BASHRC_FILE} > /dev/null
 if ! command -v ss >/dev/null 2>&1; then
     echo "🛠️ ss 不存在，尝试安装 iproute2..."
     if command -v apt >/dev/null 2>&1; then
-        sudo apt update && sudo apt install -y iproute2
+        apt update && apt install -y iproute2
     fi
 fi
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 MINER_DIR="/os/miners/custom"
-sudo mkdir -p ${MINER_DIR}/downloads
+mkdir -p ${MINER_DIR}/downloads
 cd $MINER_DIR
 
 . /os/bin/colors
