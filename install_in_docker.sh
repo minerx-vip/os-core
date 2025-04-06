@@ -193,7 +193,7 @@ fi
 ## Add environment variables
 ##################################################################
 NEW_PATH="/os/bin/"
-BASHRC_FILE="/etc/bash.bashrc"
+BASHRC_FILE="/root/.bashrc"
 sed -i "\|export PATH=.*${NEW_PATH}|d" ${BASHRC_FILE}
 echo "export PATH=${NEW_PATH}:\$PATH" | tee -a ${BASHRC_FILE} > /dev/null
 
