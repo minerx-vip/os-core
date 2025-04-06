@@ -89,9 +89,6 @@ start() {
         exit 1
     fi
 
-    ## linshi
-    # nvidia-oc delay >/dev/null
-
     echo -en "Starting ${CYAN}$MINER${NOCOLOR}"
 
     ## 将正在使用的钱包配置文件保存到 /run/os/
@@ -107,7 +104,7 @@ start() {
     rm -f ${session_log_path}
     screen -S ${session_name} -X logfile ${session_log_path}
 
-    shell="screen -S ${session_name} -X screen -t ${wallet} 2 os-run ${wallet}"
+    shell="screen -S ${session_name} -X screen -t ${wallet} 2 /os/bin/os-run ${wallet}"
     sleep 0.5
     ${shell}
 
