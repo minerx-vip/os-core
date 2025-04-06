@@ -60,6 +60,16 @@ do
    
     # 获取 `busid`（用于查询 subvendor），失败时设为空字符串
     busid_tmp=$(nvidia-smi --id="$GPU_ID" --query-gpu=pci.bus_id --format=csv,noheader,nounits 2>/dev/null | xargs || echo "")
+
+    ## 兼容 https://www.gpushare.com，跳过空显卡
+    if [[ $busid_tmp == "No devices were found" ]]; then
+        GPU_ID=$(expr $GPU_ID + 1)
+        echo "busid_tmp = ${busid_tmp}, GPU_ID = ${GPU_ID}"
+        [[ ${GPU_ID} -ge ${GPU_COUNT} ]] && break
+        continue
+    fi
+    # 
+
     busid_tmp="${busid_tmp:-""}"
     if [[ $busid_tmp =~ "Unknown Error" ]]; then
         busid_tmp=$(echo "$busid_tmp" | awk '{print $8}')
@@ -91,6 +101,7 @@ do
     ## brand
     JSON_OBJECT+="\"brand\":\"nvidia\","
 
+
  # 遍历查询字段
     for key in "${!QUERY_FIELDS[@]}"; do
         # 查询对应的字段，失败时返回空字符串
@@ -98,11 +109,6 @@ do
 
         # 如果字段没有值，则设为空字符串
         value="${value:-""}"
-
-        ##
-        if [[ $value == "N/A" ]]; then
-            value=""
-        fi
 
         if [[ $value =~ "Unknown Error" ]]; then
             if [[ $key == "vbios" ]]; then
