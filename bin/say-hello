@@ -91,9 +91,9 @@ lan_config="{\"dhcp\": $lan_dhcp, \"address\": \"${lan_addresses[@]}\", \"gatewa
 
 ## 系统主板信息
 system_uuid=`cat /sys/class/dmi/id/product_uuid 2>/dev/null` || system_uuid=$(dmidecode -s system-uuid)
-mb_product=`cat /sys/class/dmi/id/board_name 2>/dev/null`
-mb_manufacturer=`cat /sys/class/dmi/id/board_vendor 2>/dev/null`
-mb_bios=`cat /sys/class/dmi/id/bios_version 2>/dev/null`
+mb_product=$(cat /sys/class/dmi/id/board_name 2>/dev/null || dmidecode -s baseboard-product-name 2>/dev/null || echo "Unknown")
+mb_manufacturer=$(cat /sys/class/dmi/id/board_vendor 2>/dev/null || dmidecode -s baseboard-manufacturer 2>/dev/null || echo "Unknown")
+mb_bios=$(cat /sys/class/dmi/id/bios_version 2>/dev/null || dmidecode -s bios-version 2>/dev/null || echo "Unknown")
 mb_bios_date=`cat /sys/class/dmi/id/bios_date 2>/dev/null` && mb_bios="$mb_bios $mb_bios_date"
 
 ## CPU 信息
