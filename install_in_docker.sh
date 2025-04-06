@@ -239,68 +239,24 @@ if [[ ${in_container} == "true" ]]; then
     # 创建必要的目录
     mkdir -p /var/log/os/
 
-    # 创建循环脚本
-    echo "创建循环脚本..."
-    cat > /os/bin/os-core-loop.sh << 'EOF'
-#!/bin/bash
-
-# 加载颜色库
-source /os/bin/colors
-
-# 创建日志目录
-mkdir -p /var/log/os/
-
-# 记录开始时间
-echo "$(date) - os-core-loop 启动" > /var/log/os/os-core-loop.log
-
-# 检查是否为容器环境
-in_container="false"
-if [ -f /.dockerenv ] || grep -qE "docker|kubepods" /proc/1/cgroup; then
-    echoCyan "Running inside Docker" >> /var/log/os/os-core-loop.log
-    in_container="true"
-fi
-
-# 循环运行 os-core
-while true; do
-    echo "$(date) - 启动 os-core 服务..." >> /var/log/os/os-core-loop.log
-    
-    # 运行 os-core
-    if [ -x /os/bin/os-core ]; then
-        echo "$(date) - 运行 os-core..." >> /var/log/os/os-core-loop.log
-        /os/bin/os-core >> /var/log/os/os-core-loop.log 2>&1
-        echo "$(date) - os-core 执行完成" >> /var/log/os/os-core-loop.log
-    else
-        echo "$(date) - /os/bin/os-core 不存在或没有执行权限" >> /var/log/os/os-core-loop.log
-    fi
-    
-    echo "$(date) - 服务完成，10秒后再次运行" >> /var/log/os/os-core-loop.log
-    sleep 10
-done
-EOF
-
-    # 设置执行权限
-    chmod +x /os/bin/os-core-loop.sh
-    
     # 创建 supervisor 配置文件
     echo "创建 supervisor 配置..."
     mkdir -p /etc/supervisor/conf.d/
-    
+
     cat > /etc/supervisor/conf.d/os-core.conf << 'EOF'
-[program:os-core-loop]
-command=/os/bin/os-core-loop.sh
-directory=/os
+[program:say-hello]
+command=while true; do /os/bin/say-hello; sleep 10; done
+user=root
+
 autostart=true
 autorestart=true
-startretries=3
-redirect_stderr=true
-stdout_logfile=/var/log/os/supervisor-os-core.log
-stdout_logfile_maxbytes=10MB
-stdout_logfile_backups=5
+stopwaitsecs=60
+startretries=100
 stopasgroup=true
 killasgroup=true
-startsecs=10
-user=root
-priority=900
+
+redirect_stderr=true
+stdout_logfile=/var/log/os/lotus.log
 EOF
 
     # 创建日志目录
