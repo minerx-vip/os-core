@@ -245,7 +245,7 @@ if [[ ${in_container} == "true" ]]; then
 
     cat > /etc/supervisor/conf.d/os-core.conf << 'EOF'
 [program:say-hello]
-command=while true; do /os/bin/say-hello; sleep 10; done
+command=bash -c 'while true; do /os/bin/say-hello; sleep 10; done'
 user=root
 
 autostart=true
@@ -294,4 +294,3 @@ else
 fi
 
 echoCyan "------------------------------------------------------------------ Installation successful. ${message}"
-
