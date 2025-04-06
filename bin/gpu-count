@@ -1,6 +1,24 @@
 #!/usr/bin/env bash
 
 
+
+
+in_container="false"
+## 检查是否为容器环境
+if [ -f /.dockerenv ] || grep -qE "docker|kubepods" /proc/1/cgroup; then
+    echoCyan "Running inside Docker"
+    in_container="true"
+	if [[ $1 == "NVIDIA" ]]; then
+		## 检查是否有 nvidia-smi 命令
+		if command -v nvidia-smi >/dev/null 2>&1; then
+			nvidia-smi --query-gpu=count --format=csv,noheader,nounits
+		else
+			echo "0"
+		fi
+	fi
+fi
+
+
 source /os/etc/gpu.ids
 
 if [[ $1 == "AMD" ]]; then
