@@ -256,7 +256,7 @@ stopasgroup=true
 killasgroup=true
 
 redirect_stderr=true
-stdout_logfile=/var/log/os/lotus.log
+stdout_logfile=/var/log/os/say-hello.log
 EOF
 
     cat > /etc/supervisor/conf.d/say-stats.conf << 'EOF'
@@ -272,7 +272,7 @@ stopasgroup=true
 killasgroup=true
 
 redirect_stderr=true
-stdout_logfile=/var/log/os/lotus.log
+stdout_logfile=/var/log/os/say-stats.log
 EOF
 
     # 创建日志目录
