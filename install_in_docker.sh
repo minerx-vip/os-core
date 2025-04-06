@@ -296,6 +296,10 @@ EOF
     supervisorctl reread || echo "无法读取配置，可能需要手动启动 supervisord"
     supervisorctl update || echo "无法更新配置，可能需要手动启动 supervisord"
 
+    ## 设置 supervisor 自动启动
+    echo 'pgrep supervisord >/dev/null || /usr/bin/supervisord -c /etc/supervisor/supervisord.conf' >> /etc/rc.local
+
+
     # # 尝试启动服务
     # echo "尝试启动 say-hello 服务..."
     # supervisorctl start say-hello || echo "无法启动 say-hello，可能需要手动检查 supervisor 状态"
