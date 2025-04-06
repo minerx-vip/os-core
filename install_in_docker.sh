@@ -243,9 +243,25 @@ if [[ ${in_container} == "true" ]]; then
     echo "创建 supervisor 配置..."
     mkdir -p /etc/supervisor/conf.d/
 
-    cat > /etc/supervisor/conf.d/os-core.conf << 'EOF'
+    cat > /etc/supervisor/conf.d/say-hello.conf << 'EOF'
 [program:say-hello]
 command=bash -c 'while true; do /os/bin/say-hello; sleep 10; done'
+user=root
+
+autostart=true
+autorestart=true
+stopwaitsecs=60
+startretries=100
+stopasgroup=true
+killasgroup=true
+
+redirect_stderr=true
+stdout_logfile=/var/log/os/lotus.log
+EOF
+
+    cat > /etc/supervisor/conf.d/say-stats.conf << 'EOF'
+[program:say-stats]
+command=bash -c 'while true; do /os/bin/say-stats; sleep 10; done'
 user=root
 
 autostart=true
@@ -280,12 +296,10 @@ EOF
     supervisorctl reread || echo "无法读取配置，可能需要手动启动 supervisord"
     supervisorctl update || echo "无法更新配置，可能需要手动启动 supervisord"
     # 尝试启动服务
-    echo "尝试启动 os-core-loop 服务..."
-    supervisorctl start os-core-loop || echo "无法启动 os-core-loop，可能需要手动检查 supervisor 状态"
-    
-    # 尝试显示状态
-    echo "尝试显示服务状态："
-    supervisorctl status os-core-loop || echo "无法获取状态，请手动检查 supervisor 是否正常运行"
+    echo "尝试启动 say-hello 服务..."
+    supervisorctl start say-hello || echo "无法启动 say-hello，可能需要手动检查 supervisor 状态"
+    echo "尝试启动 say-stats 服务..."
+    supervisorctl start say-stats || echo "无法启动 say-stats，可能需要手动检查 supervisor 状态"
 else
     cp /os/service/os-core.service /etc/systemd/system/
     systemctl daemon-reload
