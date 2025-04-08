@@ -14,9 +14,6 @@ mkdir -p /var/log/os/
 mkdir -p /var/log/miner/custom/
 
 
-## 临时处理
-
-
 ## 程序参数
 tag=$1
 wallet=${2:-}
@@ -51,7 +48,7 @@ start() {
     MINER_STOP="/run/os/STOP_${session_name}"
 
     ## 是否处于暂停状态
-    local pause_file="/run/os/os_miner_${qubic_name}.pause"
+    local pause_file="/run/os/os_miner_${wallet}.pause"
     if [[ -f ${pause_file} ]]; then
         # 获取文件的最后修改时间（秒级时间戳）
         last_modified=$(stat -c %Y "${pause_file}")
@@ -60,12 +57,11 @@ start() {
         # 计算文件的修改时间与当前时间的差值
         time_diff=$((current_time - last_modified))
         # 判断是否超过 30 秒
-        if [ "$time_diff" -lt 10 ]; then
-            echo "文件的最后修改时间在 10 秒内"
+        if [ "$time_diff" -lt 30 ]; then
+            echo "暂停文件的最后修改时间在 30 秒内，跳过启动"
             return
         fi
     fi
-
 
     ## 获取正在运行的 miner 会话数量
     session_count=`screen -ls ${session_name} | grep -c ".${session_name}"`
@@ -190,7 +186,6 @@ start_all(){
     done
 }
 
-
 stop_all(){
     running_wallets=$(screen -ls os_miner_ | grep os_miner | awk -F'.' '{print $2"."$3}' | awk '{print $1}' | awk -F '_' '{print $3}')
     [[ -z ${running_wallets} ]] && echoYellow "No miners are running" && exit
@@ -221,7 +216,6 @@ status() {
         # echo -e "Run ${CYAN}screen -r ${session_name}${NOCOLOR} to resume screen"
     done
 }
-
 
 ## 供 say-hello 使用
 auto(){
@@ -256,6 +250,20 @@ auto(){
         ## 其他所有情况，启动 - 启动时候会判断是否已经在执行了
         start
     done
+}
+
+## 暂停
+pause() {
+    [[ -z ${wallet} ]] && echoYellow "Please specify the Miner" && exit
+    local pause_file="/run/os/os_miner_${wallet}.pause"
+    touch ${pause_file}
+}
+
+## 恢复
+resume() {
+    [[ -z ${wallet} ]] && echoYellow "Please specify the Miner" && exit
+    local pause_file="/run/os/os_miner_${wallet}.pause"
+    rm -f ${pause_file}
 }
 
 ####################################################################################
@@ -325,5 +333,11 @@ case ${tag} in
     ;;
     logs)
         logs
+    ;;
+    pause)
+        pause
+    ;;
+    resume)
+        resume
     ;;
 esac
