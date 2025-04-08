@@ -36,6 +36,7 @@ kill_hanged() {
 
 ## 启动session_name="os_miner_${wallet}"
 start() {
+    
 
     ## TODO 临时处理
     cp -f /os/miners/custom/h-manifest.conf.default /os/miners/custom/h-manifest.conf
@@ -46,6 +47,8 @@ start() {
     session_name="os_miner_${wallet}"
     RUNNING_FLAG="/run/os/RUNNING_${session_name}"
     MINER_STOP="/run/os/STOP_${session_name}"
+    ## 指定日志文件路径
+    session_log_path="/var/log/os/${session_name}.log"
 
     ## 是否处于暂停状态
     local pause_file="/run/os/os_miner_${wallet}.pause"
@@ -67,9 +70,19 @@ start() {
     session_count=`screen -ls ${session_name} | grep -c ".${session_name}"`
     ## 如果数量 > 0，提示已经在运行了
     if [[ $session_count -gt 0 ]]; then
-        echo -e "${YELLOW}Miner screen is already running${NOCOLOR}"
-        echo -e "Run ${CYAN}screen -r ${session_name}${NOCOLOR} to resume screen"
-        return
+        ## 如果日志文件超过1分钟没有更新, 则结束现有的以便重新启动
+        local current_time=$(date +%s)
+        local file_mod_time=$(stat -c %Y "$session_log_path")   # 获取文件最后修改时间戳
+        local time_diff=$((current_time - file_mod_time))   # 计算文件最后修改时间与当前时间的差值（单位：秒）
+        if [[ $time_diff -gt 60 ]]
+        then
+            screen -S ${session_name} -X quit
+        else
+            # 如果日志文件在1分钟内更新，则提示正在运行
+            echo -e "${YELLOW}Miner screen is already running${NOCOLOR}"
+            echo -e "Run ${CYAN}screen -r ${session_name}${NOCOLOR} to resume screen"
+            return
+        fi
     fi
 
     ##
@@ -96,7 +109,7 @@ start() {
 
     ## 设置日志文件路径
     # MINER = custom
-    session_log_path="/var/log/os/${session_name}.log"
+    
     rm -f ${session_log_path}
     screen -S ${session_name} -X logfile ${session_log_path}
 
