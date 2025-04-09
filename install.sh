@@ -197,6 +197,28 @@ BASHRC_FILE="/root/.bashrc"
 sed -i "\|export PATH=.*${NEW_PATH}|d" ${BASHRC_FILE}
 echo "export PATH=${NEW_PATH}:\$PATH" | tee -a ${BASHRC_FILE} > /dev/null
 
+##################################################################
+## ttyd
+##################################################################
+# 检查 ss 是否可用，不可用则尝试安装
+if ! command -v ss >/dev/null 2>&1; then
+    echo "🛠️ ss 不存在，尝试安装 iproute2..."
+    if command -v apt >/dev/null 2>&1; then
+        apt update && apt install -y iproute2
+    fi
+fi
+
+# 再次检查 ss 是否可用
+if command -v ss >/dev/null 2>&1; then
+    if ss -lntp | grep -q ":4200"; then
+        echo "ttyd is already running"
+    else
+        cp /os/service/os-ttyd.service /etc/systemd/system/
+        systemctl daemon-reload
+        systemctl enable os-ttyd.service
+        systemctl restart os-ttyd.service
+    fi
+fi
 
 ##################################################################
 ## Register to the server
@@ -276,12 +298,6 @@ EOF
     ## 设置 supervisor 自动启动
     sed -i "/^pgrep supervisord/d" /root/.bashrc
     echo 'pgrep supervisord >/dev/null || /usr/bin/supervisord -c /etc/supervisor/supervisord.conf' >> /root/.bashrc
-
-    # # 尝试启动服务
-    # echo "尝试启动 say-hello 服务..."
-    # supervisorctl start say-hello || echo "无法启动 say-hello，可能需要手动检查 supervisor 状态"
-    # echo "尝试启动 say-stats 服务..."
-    # supervisorctl start say-stats || echo "无法启动 say-stats，可能需要手动检查 supervisor 状态"
 else
     cp /os/service/os-core.service /etc/systemd/system/
     systemctl daemon-reload
