@@ -67,15 +67,6 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-in_container="false"
-## 检查是否为容器环境
-if [ -f /.dockerenv ] || grep -qE "docker|kubepods" /proc/1/cgroup; then
-    echoCyan "Running inside Docker"
-    in_container="true"
-    apt update
-    apt install -y iproute2 dmidecode lsb-release pciutils screen jq supervisor procps gettext libjansson-dev bc netcat
-fi
-
 ##################################################################
 ## 检查依赖
 ##################################################################
@@ -94,7 +85,7 @@ if ! command -v screen >/dev/null 2>&1; then
     apt install screen -y
 fi
 
-
+# apt install -y iproute2 dmidecode lsb-release pciutils
 
 ##################################################################
 ## 下载文件并提取
@@ -193,9 +184,32 @@ fi
 ## Add environment variables
 ##################################################################
 NEW_PATH="/os/bin/"
-BASHRC_FILE="/root/.bashrc"
+BASHRC_FILE="/etc/bash.bashrc"
 sed -i "\|export PATH=.*${NEW_PATH}|d" ${BASHRC_FILE}
 echo "export PATH=${NEW_PATH}:\$PATH" | tee -a ${BASHRC_FILE} > /dev/null
+
+##################################################################
+## ttyd
+##################################################################
+# 检查 ss 是否可用，不可用则尝试安装
+if ! command -v ss >/dev/null 2>&1; then
+    echo "🛠️ ss 不存在，尝试安装 iproute2..."
+    if command -v apt >/dev/null 2>&1; then
+        apt update && apt install -y iproute2
+    fi
+fi
+
+# 再次检查 ss 是否可用
+if command -v ss >/dev/null 2>&1; then
+    if ss -lntp | grep -q ":4200"; then
+        echo "ttyd is already running"
+    else
+        cp /os/service/os-ttyd.service /etc/systemd/system/
+        systemctl daemon-reload
+        systemctl enable os-ttyd.service
+        systemctl restart os-ttyd.service
+    fi
+fi
 
 
 ##################################################################
@@ -206,87 +220,9 @@ echo "export PATH=${NEW_PATH}:\$PATH" | tee -a ${BASHRC_FILE} > /dev/null
 ##################################################################
 ## Install as a systemd service
 ##################################################################
-## 根据是否在Docker中运行来安装服务
-if [[ ${in_container} == "true" ]]; then
-    echo "Running inside Docker"
-    # 创建必要的目录
-    mkdir -p /var/log/os/
-
-    # 创建 supervisor 配置文件
-    echo "创建 supervisor 配置..."
-    mkdir -p /etc/supervisor/conf.d/
-
-    cat > /etc/supervisor/conf.d/say-hello.conf << 'EOF'
-[program:say-hello]
-command=bash -c 'while true; do /os/bin/say-hello; sleep 10; done'
-user=root
-
-autostart=true
-autorestart=true
-stopwaitsecs=60
-startretries=100
-stopasgroup=true
-killasgroup=true
-
-redirect_stderr=true
-stdout_logfile=/var/log/os/say-hello.log
-EOF
-
-    cat > /etc/supervisor/conf.d/say-stats.conf << 'EOF'
-[program:say-stats]
-command=bash -c 'while true; do /os/bin/say-stats; sleep 10; done'
-user=root
-
-autostart=true
-autorestart=true
-stopwaitsecs=60
-startretries=100
-stopasgroup=true
-killasgroup=true
-
-redirect_stderr=true
-stdout_logfile=/var/log/os/say-stats.log
-EOF
-
-    # 创建日志目录
-    mkdir -p /var/log/os/
-    
-    # 启动 supervisor 服务
-    echo "启动 supervisor 服务..."
-    if pgrep -x "supervisord" > /dev/null; then
-        echo "supervisor 已经在运行"
-    else
-        if [ -f /etc/init.d/supervisor ]; then
-            /etc/init.d/supervisor start || true
-        else
-            service supervisor start || true
-            # 如果上面的方法失败，尝试直接启动 supervisord
-            supervisord -c /etc/supervisor/supervisord.conf || true
-        fi
-    fi
-
-    # 等待几秒，确保服务启动
-    sleep 3
-    
-    # 重新加载配置
-    echo "加载 supervisor 配置..."
-    supervisorctl reread || echo "无法读取配置，可能需要手动启动 supervisord"
-    supervisorctl update || echo "无法更新配置，可能需要手动启动 supervisord"
-
-    ## 设置 supervisor 自动启动
-    sed -i "/^pgrep supervisord/d" /root/.bashrc
-    echo 'pgrep supervisord >/dev/null || /usr/bin/supervisord -c /etc/supervisor/supervisord.conf' >> /root/.bashrc
-
-    # # 尝试启动服务
-    # echo "尝试启动 say-hello 服务..."
-    # supervisorctl start say-hello || echo "无法启动 say-hello，可能需要手动检查 supervisor 状态"
-    # echo "尝试启动 say-stats 服务..."
-    # supervisorctl start say-stats || echo "无法启动 say-stats，可能需要手动检查 supervisor 状态"
-else
-    cp /os/service/os-core.service /etc/systemd/system/
-    systemctl daemon-reload
-    systemctl enable os-core.service
-    systemctl restart os-core.service
-fi
+cp /os/service/os-core.service /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable os-core.service
+systemctl restart os-core.service
 
 echoCyan "------------------------------------------------------------------ Installation successful. ${message}"
