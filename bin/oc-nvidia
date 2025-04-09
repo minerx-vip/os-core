@@ -40,7 +40,18 @@ apply_nvml() {
     local exitcode
     local result
     [[ -z "$args" ]] && return 0
-    shell="/hive/sbin/nvtool -q --nodev $args"
+
+    ## 如果有 py-nvtool.py，使用它
+    if command -v py-nvtool.py >/dev/null 2>&1; then
+        shell="/os/bin/py-nvtool.py $args"
+    fi
+
+    ## 如果有 nvtool，使用 hive nvtool
+    if command -v nvtool >/dev/null 2>&1; then
+        shell="/hive/sbin/nvtool -q --nodev $args"
+    fi
+
+
     # echo "$shell"
     result=`timeout --foreground -s9 $NVML_TIMEOUT $shell`
     exitcode=$?
