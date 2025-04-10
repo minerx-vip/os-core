@@ -42,7 +42,7 @@ apply_nvml() {
     [[ -z "$args" ]] && return 0
 
     ## 如果有 py-nvtool.py，使用它
-    if command -v py-nvtool.py >/dev/null 2>&1; then
+    if [[ -f /os/bin/py-nvtool.py ]]; then
         shell="/os/bin/py-nvtool.py $args"
     fi
 
