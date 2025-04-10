@@ -93,8 +93,11 @@ do
 
 
     ## 获取显卡名称
-    # name=`lspci -vmms "$busid_tmp" 2>/dev/null | grep "Device:" | grep -v 'SDevice' | cut -d "[" -f2 | tr -d "]"`
-    name=`lspci -vmms "$busid_tmp" 2>/dev/null | grep "Device:" | grep -v 'SDevice' | awk -F ':' '{print $NF}'`
+    if [[ $(systemd-detect-virt) == "wsl" ]]; then  ## 兼容 WSL 环境
+			name=$(nvidia-smi -i ${GPU_ID} --query-gpu=name --format=csv,noheader,nounits)
+		else
+            name=`lspci -vmms "$busid_tmp" 2>/dev/null | grep "Device:" | grep -v 'SDevice' | awk -F ':' '{print $NF}'`
+	fi
     [[ "$name" =~ CMP ]] && name="GeForce $name"
     name=$(echo "$name" | tr -d ":")
     name="${name#"${name%%[![:space:]]*}"}"
