@@ -61,6 +61,13 @@ do
     # 获取 `busid`（用于查询 subvendor），失败时设为空字符串
     busid_tmp=$(nvidia-smi --id="$GPU_ID" --query-gpu=pci.bus_id --format=csv,noheader,nounits 2>/dev/null | xargs || echo "")
 
+    ## 跳过报错的显卡
+    if [[ $busid_tmp =~ "NVIDIA-SMI has failed because it couldn't communicate with the NVIDIA driver. Make sure that the latest NVIDIA driver is installed and running" ]]; then
+        GPU_ID=$(expr $GPU_ID + 1)
+        [[ ${GPU_ID} -ge ${GPU_COUNT} ]] && break
+        continue
+    fi
+
     ## 兼容 https://www.gpushare.com，跳过空显卡
     if [[ $busid_tmp == "No devices were found" ]]; then
         GPU_ID=$(expr $GPU_ID + 1)
@@ -68,7 +75,7 @@ do
         [[ ${GPU_ID} -ge ${GPU_COUNT} ]] && break
         continue
     fi
-    # 
+
 
     busid_tmp="${busid_tmp:-""}"
     if [[ $busid_tmp =~ "Unknown Error" ]]; then
