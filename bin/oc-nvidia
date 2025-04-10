@@ -186,7 +186,8 @@ handle_oc_config() {
             if [[ ${tag} == "apply_set" ]] && [[ ${vbios} != "MALFUNCTION" ]] && [[ ${skipp_this} == "false" ]]; then
                 apply_nvml "-i $i --setcoreoffset $setcoreoffset" || exitcode=$?
                 apply_nvml "-i $i --setmemoffset $setmemoffset" || exitcode=$?
-                apply_nvml "-i $i --setclocks $setclocks" || exitcode=$?
+                # apply_nvml "-i $i --setclocks $setclocks" || exitcode=$?
+                apply_nvml "-i $i --setcore $setclocks" || exitcode=$?
                 apply_nvml "-i $i --setmem $setmem" || exitcode=$?
                 apply_nvml "-i $i --setfan $setfan" || exitcode=$?
             fi
