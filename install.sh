@@ -93,6 +93,13 @@ if ! command -v screen >/dev/null 2>&1; then
     apt update
     apt install screen -y
 fi
+if ! command -v dmidecode >/dev/null 2>&1; then
+    apt update
+    apt install dmidecode -y
+fi
+
+
+
 
 
 
