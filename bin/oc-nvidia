@@ -211,7 +211,8 @@ handle_oc_config() {
             ## 重新加载配置
             export NVIDIA_OC_CONF="/hive-config/nvidia-oc.conf"
             if [[ -z ${USE_GPUS} ]]; then
-                /hive/sbin/nvidia-oc
+                echo
+                # /hive/sbin/nvidia-oc
             fi
         fi
     fi
