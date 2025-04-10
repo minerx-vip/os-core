@@ -29,7 +29,7 @@ if command -v nvtool &>/dev/null; then
     ## 获取 GPU 信息
     gpu_detect_json=`gpu-check listjson NVIDIA`
 else
-    echoYellow "nvtool not found, skipping setting GPU sommething"
+    # echoYellow "nvtool not found, skipping setting GPU sommething"
     gpu_detect_json=$(nvidia-json)
 fi
 
@@ -171,7 +171,7 @@ handle_oc_config() {
         fi
 
         ## 如果存在 nvtool 命令，则设置其他参数
-        if command -v nvtool &>/dev/null; then
+        if command -v nvtool &>/dev/null || [[ -f /os/bin/py-nvtool.py ]]; then
             if [[ ${tag} == "apply_hive" ]]; then
                 ## 拼接 HiveOS 用参数
                 [[ -z "$CLOCK" ]] && CLOCK="${setcoreoffset}" || CLOCK="${CLOCK} ${setcoreoffset}"
