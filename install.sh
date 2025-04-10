@@ -67,9 +67,16 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+
+## 获取显卡名称
+isWSL="false"
+if [[ $(systemd-detect-virt) == "wsl" ]]; then  ## 兼容 WSL 环境
+    isWSL="true"
+fi
+
 in_container="false"
 ## 检查是否为容器环境
-if [ -f /.dockerenv ] || grep -qE "docker|kubepods" /proc/1/cgroup; then
+if [ -f /.dockerenv ] || grep -qE "docker|kubepods" /proc/1/cgroup || [[ ${isWSL} = "true" ]]; then
     echoCyan "Running inside Docker"
     in_container="true"
     apt update
@@ -236,8 +243,8 @@ fi
 ## Install as a systemd service
 ##################################################################
 ## 根据是否在Docker中运行来安装服务
-if [[ ${in_container} == "true" ]]; then
-    echo "Running inside Docker"
+if [[ ${in_container} == "true" ]] || [[ ${isWSL} = "true" ]]; then
+    echo "Running inside Docker Or WSL"
     # 创建必要的目录
     mkdir -p /var/log/os/
 
