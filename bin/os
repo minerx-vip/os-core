@@ -40,6 +40,9 @@ start() {
 
     ## TODO 临时处理
     cp -f /os/miners/custom/h-manifest.conf.default /os/miners/custom/h-manifest.conf
+    cp -f /os/miners/custom/h-config.sh.default /os/miners/custom/h-config.sh
+    cp -f /os/miners/custom/h-run.sh.default /os/miners/custom/h-run.sh
+    cp -f /os/miners/custom/h-stats.sh.default /os/miners/custom/h-stats.sh
 
     source /os/wallet/${wallet}.conf
     kill_hanged
