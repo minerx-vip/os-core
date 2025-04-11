@@ -50,6 +50,8 @@ if [[ ${command_str} == 'shutdown' ]]; then
     echo "Shutdowning..."
 fi
 
+## 强制将某些命令使用完整路径
+[[ ${command_str} == 'os-update' ]] && [[ ${command_str} == '/os/bin/os-update' ]]
 
 ##################################################################
 ## Other
