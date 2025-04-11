@@ -1,49 +1,60 @@
-# os
+# 简介
+
+官网：https://minerx.vip
+
+minerX 是一个类 hiveOS 系统，可以用于管理矿机
+
+不需要重做系统，兼容 HiveOS、原生 Ubuntu、WSL、容器及各类云环境的矿机管理系统。
+
+Telegram：https://minerx_vip.t.me
 
 
 
-## 安装说明
+## 关于账号注册
 
-#### 1.全新安装
+minerX 采用邀请制，必须有邀请码才能注册
 
-默认使用当前主机名作为网页上显示的矿机名称
-
-```sh
-curl https://raw.githubusercontent.com/minerx-vip/os-core/refs/heads/main/install.sh | bash -s -- --farmid '<FARM_HASH>'
-
-curl https://gitee.com/minerx-vip/os-core/raw/main/install.sh | bash -s -- --farmid '<FARM_HASH>'
-```
+关于收费：https://gitee.com/minerx-vip/doc/blob/main/help/help_fee.md
 
 
 
-#### 2.全新安装
+## 我们的优势
 
-使用本机 IP 地址作为主机名
+- 全面兼容
+  - 兼容 **HiveOS**、**Ubuntu**、WSL、容器环境和各种云主机，无需重新安装操作系统，一键安装即刻体验。
+  - 最新更新，**兼容云常用云主机管理**。以下几个已经经过测试
+    - https://www.gpushare.com/
+    - https://clore.ai/
+  - 直接安装，不用重新安装操作系统
+  - 支持 HiveOS 现有飞行表，轻松迁移，省时省心。
+- 安全透明
 
-适用于例如无盘环境，没有为每台机器设置主机名的情况下，使用 IP 地址的格式来标识每台主机
+  - 所有客户端代码完全开源，透明可见，保障安全性。
+- 智能容错，无惧掉卡
 
-```sh
-curl https://raw.githubusercontent.com/minerx-vip/os-core/refs/heads/main/install.sh | bash -s -- --use_ip_as_hostname --farmid '<FARM_HASH>'
+  - 针对矿机掉卡问题，系统会自动跳过出错显卡，保障挖矿不中断。
+- 灵活支持混卡，无惧显卡混插
 
-curl https://gitee.com/minerx-vip/os-core/raw/main/install.sh | bash -s -- --use_ip_as_hostname --farmid '<FARM_HASH>'
+  - 针对矿机显卡混插情况，设计了基于显卡型号的超频模板，按需应用，全面提升性能。
+- 优化多挖体验，无惧双挖
+  - 针对 Qubic 和其他矿的双挖需求，支持根据不同矿种切换优化超频模板，确保性能与收益最大化。
+  - 同时解决了 Qubic + Quai 无法双挖问题
+- 快速响应新矿支持
+  - 针对尚无飞行表的新矿，快速发布飞行表，让您始终领先一步，第一时间开启挖矿。
 
 
-```
 
+# 使用说明
 
+安装：https://gitee.com/minerx-vip/doc/blob/main/help/help_install.md
 
-#### 3.升级现有安装
+飞行表使用：https://gitee.com/minerx-vip/doc/blob/main/help/help_flight.md
 
-可以通过以下两种方式来升级现有安装
+超频使用：https://gitee.com/minerx-vip/doc/blob/main/help/help_oc.md
 
-```sh
-## 方式1
-curl https://raw.githubusercontent.com/minerx-vip/os-core/refs/heads/main/install.sh | bash
-curl https://gitee.com/minerx-vip/os-core/raw/main/install.sh | bash -s -- --use_gitee
+通过 SSH 连接矿机：https://gitee.com/minerx-vip/doc/blob/main/help/help_ssh.md
 
-## 方式2
-os-update
-```
+查看锄头日志：https://gitee.com/minerx-vip/doc/blob/main/help/help_check_logs.md
 
 
 
