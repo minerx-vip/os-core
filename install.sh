@@ -40,6 +40,7 @@ echoWhite(){
 message=""
 farmid=""
 use_ip_as_hostname="false"
+use_public_ip_as_hostname="false"
 force="false"
 down_uri="https://minerx-download.oss-cn-shanghai.aliyuncs.com"
 backup_down_uri="http://47.97.210.214:8889"
@@ -50,6 +51,10 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --use_ip_as_hostname)
             use_ip_as_hostname="true"
+            shift
+            ;;
+        --use_public_ip_as_hostname)
+            use_public_ip_as_hostname="true"
             shift
             ;;
         --farmid)
@@ -66,7 +71,6 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
-
 
 ## 获取显卡名称
 isWSL="false"
@@ -189,14 +193,29 @@ fi
 ##################################################################
 ## Handle Hostname
 ##################################################################
-if [[ ${use_ip_as_hostname} == 'true' ]]; then
-    IP=$(ip route get 8.8.8.8 | grep -oP '(?<=src\s)\d+(\.\d+){3}')
-    IFS='.' read -r -a ip_parts <<< "$IP"
-    for i in "${!ip_parts[@]}"; do
-        ip_parts[$i]=$(printf "%03d" "${ip_parts[$i]}")
-    done
-    IP_STR="${ip_parts[2]}_${ip_parts[3]}"
+## 使用外网 IP 作为主机名
+if [[ ${use_public_ip_as_hostname} == 'true' ]]; then
+    PUBLIC_IP=$(curl -s ifconfig.me)
+fi
 
+
+if [[ ${use_ip_as_hostname} == 'true' ]] || [[ ${use_public_ip_as_hostname} == 'true' ]]; then
+
+    if [[ ${use_ip_as_hostname} == 'true' ]]; then
+        IP=$(ip route get 8.8.8.8 | awk '{for (i=1;i<=NF;i++) if ($i=="src") print $(i+1)}')
+        IFS='.' read -r -a ip_parts <<< "$IP"
+        for i in "${!ip_parts[@]}"; do
+            ip_parts[$i]=$(printf "%03d" "${ip_parts[$i]}")
+        done
+        IP_STR="${ip_parts[2]}_${ip_parts[3]}"
+    elif [[ ${use_public_ip_as_hostname} == 'true' ]]; then
+        IP=$(curl -s ifconfig.me)
+        IFS='.' read -r -a ip_parts <<< "$IP"
+        for i in "${!ip_parts[@]}"; do
+            ip_parts[$i]=$(printf "%03d" "${ip_parts[$i]}")
+        done
+        IP_STR="${ip_parts[0]}_${ip_parts[1]}_${ip_parts[2]}_${ip_parts[3]}"
+    fi
     sed -i '/^worker_name/d' /os/config/rig.conf
     echo "worker_name=\"ip_${IP_STR}\"" >> /os/config/rig.conf
     message="Use ${IP_STR} as the hostname"
