@@ -19,6 +19,12 @@ if [ -f /.dockerenv ] || grep -qE "docker|kubepods" /proc/1/cgroup; then
     in_container="true"
 fi
 
+## 是否为 WSL 环境
+isWSL="false"
+if [[ $(systemd-detect-virt) == "wsl" ]]; then  ## 兼容 WSL 环境
+    isWSL="true"
+fi
+
 ##########################################################################################
 ## 定义全局变量
 ##########################################################################################
@@ -423,7 +429,13 @@ if [[ "${in_container}" == "false" ]]; then
     if ! grep -q "127.0.0.1 $hostname" "/etc/hosts"; then
         printf "\n127.0.0.1 $hostname" >> /etc/hosts
         printf "\n127.0.0.1 localhost" >> /etc/hosts
-        hostnamectl set-hostname "$hostname"
+
+        ## WSL 环境下，需要使用 hostname 命令
+        if [[ ${isWSL} == "true" ]]; then
+            hostname "$hostname"
+        else
+            hostnamectl set-hostname "$hostname"
+        fi
     fi
 fi
 
