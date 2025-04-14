@@ -19,10 +19,14 @@ NVML_TIMEOUT=10
 ## 如果 GPU 数量为 0，退出
 n=`/os/bin/gpu-count NVIDIA`
 if [[ $n -eq 0 ]]; then
-    echoRed "No NVIDIA GPU detected"
+    echoYellow "No NVIDIA GPU detected"
     exit 0
 fi
 
+## 如果 OC 为空，则退出
+if [[ -z ${OC} ]] || [[ ${OC} == '[]' ]]; then
+    echoYellow "OC not specified" && exit 1
+fi
 
 ## 判断是否有 nvtool 命令，如果没有则跳过某些参数的设置
 if command -v nvtool &>/dev/null; then
@@ -88,6 +92,9 @@ apply_nvidia_smi() {
 ## 处理JSON配置文件
 handle_oc_config() {
     tag=$1
+
+
+
 
     if [[ -z ${tag} ]] || [[ ${tag} == "" ]]; then
         echo "需要指定 handle_oc_config 参数"
