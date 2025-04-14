@@ -69,14 +69,14 @@ fi
 ## IP 信息
 ips=( $(hostname -I) )
 ips_json=`printf '%s\n' "${ips[@]}" | jq -R . | jq -s -c .`
-net_interfaces=`ip -o link | grep -vE 'LOOPBACK|POINTOPOINT|sit0|can0|docker|sonm|ifb|veth' | sed 's/altname.*//' | awk '{  printf "{\"iface\": \"%s\", \"mac\": \"%s\"}\n", substr($2, 1, length($2)-1), $(NF-2)  }' | jq -sc .`
+net_interfaces=$(ip -o link | grep -vE 'LOOPBACK|POINTOPOINT|sit0|can0|docker|sonm|ifb|veth' | sed 's/altname.*//' | awk '{  printf "{\"iface\": \"%s\", \"mac\": \"%s\"}\n", substr($2, 1, length($2)-1), $(NF-2)  }' | jq -sc . 2>/dev/null || echo "[]")
 
 ## 调整内网 IP 获取方式
 # lan_addresses=(`ip -o -f inet addr show | grep eth0 | awk '/scope global/ {print $4}'`)
 # lan_gateway=`ip route | awk '/default/ && /eth0/ { print $3 }' | head -1`
-DEFAULT_IFACE=$(ip route | awk '/default/ {print $5}' | head -1)
-lan_addresses=(`ip -o -f inet addr show | grep $DEFAULT_IFACE | awk '/scope global/ {print $4}'`)
-lan_gateway=`ip route | awk '/default/ && /'$DEFAULT_IFACE'/ { print $3 }' | head -1`
+DEFAULT_IFACE=$(ip route | awk '/default/ {print $5}' | head -1 || echo "eth0")
+lan_addresses=($(ip -o -f inet addr show | grep $DEFAULT_IFACE | awk '/scope global/ {print $4}' || echo "0.0.0.0/0"))
+lan_gateway=$(ip route | awk '/default/ && /'$DEFAULT_IFACE'/ { print $3 }' | head -1 || echo "0.0.0.0")
 
 
 lan_dns=""
@@ -202,11 +202,12 @@ timezone_cur=$(date +"%Z %z")
 cpu_temp=$(/os/bin/cpu-temp)
 
 ## 内存信息
-swap_total=$(awk '/^SwapTotal:/ {print $2}' /proc/meminfo)
-swap_free=$(awk '/^SwapFree:/ {print $2}' /proc/meminfo)
+swap_total=$(awk '/^SwapTotal:/ {print $2}' /proc/meminfo || echo 0)
+swap_free=$(awk '/^SwapFree:/ {print $2}' /proc/meminfo || echo 0)
 swap_used=$((swap_total - swap_free))
-mem_total=$(grep MemTotal /proc/meminfo | awk '{print $2}')  # 单位：kB
-mem_available=$(grep MemAvailable /proc/meminfo | awk '{print $2}')  # 单位：kB
+mem_total=$(grep MemTotal /proc/meminfo | awk '{print $2}' || echo 0)  # 单位：kB
+mem_available=$(grep MemAvailable /proc/meminfo | awk '{print $2}' || echo 0)  # 单位：kB
+[[ -z "$mem_available" || "$mem_available" == "" ]] && mem_available=0
 mem_used=$((mem_total - mem_available))  # 计算已用内存，单位：kB
 
 
@@ -214,6 +215,18 @@ mem_used=$((mem_total - mem_available))  # 计算已用内存，单位：kB
 ##########################################################################################
 ## 拼接发送请求
 ##########################################################################################
+# 确保所有JSON变量都是有效的
+[[ -z "$net_interfaces" || "$net_interfaces" == "null" ]] && net_interfaces="[]"
+[[ -z "$gpus" || "$gpus" == "null" ]] && gpus="[]"
+[[ -z "$ips_json" || "$ips_json" == "null" ]] && ips_json="[]"
+[[ -z "$lan_config" || "$lan_config" == "null" ]] && lan_config="{}"
+
+# 确保数值变量都有默认值
+[[ -z "$gpu_count_amd" ]] && gpu_count_amd=0
+[[ -z "$gpu_count_nvidia" ]] && gpu_count_nvidia=0
+[[ -z "$gpu_count_intel" ]] && gpu_count_intel=0
+[[ -z "$mem_available" ]] && mem_available=0
+
 request=$(
     jq -n \
     --arg farm_hash "$farm_hash" \
@@ -247,21 +260,21 @@ request=$(
     --arg swap_used "$swap_used" \
     --arg swap_free "$swap_free" \
     --arg register "$register" \
-    '
-    {
+    '{
         "method": "hello", "jsonrpc": "2.0", "id": 0,
         "params": {
-            $farm_hash, $uid, $rig_name, $rig_id,
-            $boot_time, $ip, $lan_config, $net_interfaces,
-            $gpu_count_amd, $gpu_count_nvidia, $gpu_count_intel, $gpus,
-            "mb": {$manufacturer, $product, $system_uuid, $bios}, "cpu": {$model, $cores, $aes, $cpu_id}, $disk_model,
-            $distro_ver, $kernel, $hive_version, $nvidia_version, $os_version,
-            $cpu_usage, $load_avg, $timezone, $cpu_temp,
-            $mem_total, $mem_used, $mem_available, 
-            $swap_total, $swap_used, $swap_free, $register
+            "farm_hash": $farm_hash, "uid": $uid, "rig_name": $rig_name, "rig_id": $rig_id,
+            "boot_time": $boot_time, "ip": $ip, "lan_config": $lan_config, "net_interfaces": $net_interfaces,
+            "gpu_count_amd": $gpu_count_amd, "gpu_count_nvidia": $gpu_count_nvidia, "gpu_count_intel": $gpu_count_intel, "gpus": $gpus,
+            "mb": {"manufacturer": $manufacturer, "product": $product, "system_uuid": $system_uuid, "bios": $bios}, 
+            "cpu": {"model": $model, "cores": $cores, "aes": $aes, "cpu_id": $cpu_id}, 
+            "disk_model": $disk_model,
+            "distro_ver": $distro_ver, "kernel": $kernel, "hive_version": $hive_version, "nvidia_version": $nvidia_version, "os_version": $os_version,
+            "cpu_usage": $cpu_usage, "load_avg": $load_avg, "timezone": $timezone, "cpu_temp": $cpu_temp,
+            "mem_total": $mem_total, "mem_used": $mem_used, "mem_available": $mem_available, 
+            "swap_total": $swap_total, "swap_used": $swap_used, "swap_free": $swap_free, "register": $register
         }
-    }
-    '
+    }'
 )
 [[ ${tag_debug} == 1 ]] && echo "Request: ${request}"
 
@@ -284,6 +297,7 @@ exitcode=$?
 ##########################################################################################
 ## 处理错误
 ##########################################################################################
+exitcode_domain=0
 if [[ $exitcode -ne 0 ]]; then
     echoRed "ERROR: connection to API server failed $api, $response, Use domain API instead" 
 
