@@ -99,23 +99,32 @@ lan_config="{\"dhcp\": $lan_dhcp, \"address\": \"${lan_addresses[@]}\", \"gatewa
 
 
 ## 系统主板信息
-system_uuid=`cat /sys/class/dmi/id/product_uuid 2>/dev/null` || system_uuid=$(dmidecode -s system-uuid)
-mb_product=$(cat /sys/class/dmi/id/board_name 2>/dev/null || dmidecode -s baseboard-product-name 2>/dev/null || echo "Unknown")
-mb_manufacturer=$(cat /sys/class/dmi/id/board_vendor 2>/dev/null || dmidecode -s baseboard-manufacturer 2>/dev/null || echo "Unknown")
-mb_bios=$(cat /sys/class/dmi/id/bios_version 2>/dev/null || dmidecode -s bios-version 2>/dev/null || echo "Unknown")
-mb_bios_date=`cat /sys/class/dmi/id/bios_date 2>/dev/null` && mb_bios="$mb_bios $mb_bios_date"
+if [[ ${isWSL} == "true" ]]; then
+    # WSL 环境下使用默认值
+    system_uuid="WSL-$(hostname)-$(date +%s)"
+    mb_product="WSL Virtual Machine"
+    mb_manufacturer="Microsoft"
+    mb_bios="WSL BIOS"
+    mb_bios_date=""
+else
+    system_uuid=`cat /sys/class/dmi/id/product_uuid 2>/dev/null` || system_uuid=$(dmidecode -s system-uuid 2>/dev/null || echo "Unknown-$(hostname)")
+    mb_product=$(cat /sys/class/dmi/id/board_name 2>/dev/null || dmidecode -s baseboard-product-name 2>/dev/null || echo "Unknown")
+    mb_manufacturer=$(cat /sys/class/dmi/id/board_vendor 2>/dev/null || dmidecode -s baseboard-manufacturer 2>/dev/null || echo "Unknown")
+    mb_bios=$(cat /sys/class/dmi/id/bios_version 2>/dev/null || dmidecode -s bios-version 2>/dev/null || echo "Unknown")
+    mb_bios_date=`cat /sys/class/dmi/id/bios_date 2>/dev/null` && mb_bios="$mb_bios $mb_bios_date"
+fi
 
 ## CPU 信息
 cpu_model=`lscpu | grep "Model name:" | sed 's/Model name:[ \t]*//g'`
 cpu_cores=`lscpu | grep "^CPU(s):" | sed 's/CPU(s):[ \t]*//g'`
 aes=`lscpu | grep "^Flags:.*aes" | wc -l`
 
-# 容器中运行的话，需要执行不同的逻辑
-if [[ ${in_container} == "true" ]]; then
-    # 在容器中使用替代方法或设置默认值
-    cpu_id=$(cat /proc/cpuinfo | grep "processor" | head -1 | awk '{print $3}' || echo "container-cpu")
+# 容器或WSL中运行的话，需要执行不同的逻辑
+if [[ ${in_container} == "true" || ${isWSL} == "true" ]]; then
+    # 在容器或WSL中使用替代方法或设置默认值
+    cpu_id=$(cat /proc/cpuinfo | grep "processor" | head -1 | awk '{print $3}' || echo "virtual-cpu")
 else
-    cpu_id=`dmidecode -t 4 | grep ID | sed 's/.*ID://;s/ //g'`
+    cpu_id=`dmidecode -t 4 | grep ID | sed 's/.*ID://;s/ //g' 2>/dev/null || echo "unknown-cpu-id"`
 fi
 
 
@@ -205,7 +214,12 @@ load_avg=$(awk '{print $1","$2","$3}' /proc/loadavg)
 timezone_cur=$(date +"%Z %z")
 
 ## 获取 CPU 温度
-cpu_temp=$(/os/bin/cpu-temp)
+if [[ ${isWSL} == "true" ]]; then
+    # WSL 环境下无法获取 CPU 温度，使用默认值
+    cpu_temp="0"
+else
+    cpu_temp=$(/os/bin/cpu-temp)
+fi
 
 ## 内存信息
 swap_total=$(awk '/^SwapTotal:/ {print $2}' /proc/meminfo || echo 0)
@@ -441,7 +455,14 @@ fi
 
 
 ## Timezone
-[[ ! -z $timezone ]] && [[ $timezone != "" ]] && timedatectl set-timezone "$timezone"
+if [[ ! -z $timezone ]] && [[ $timezone != "" ]]; then
+    if [[ ${isWSL} == "true" ]]; then
+        # WSL 环境下可能无法使用 timedatectl
+        echo "WSL environment: skipping timezone change"
+    else
+        timedatectl set-timezone "$timezone"
+    fi
+fi
 
 
 ##########################################################################################
