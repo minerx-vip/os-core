@@ -73,12 +73,11 @@ start() {
     session_count=`screen -ls ${session_name} | grep -c ".${session_name}"`
     ## 如果数量 > 0，提示已经在运行了
     if [[ $session_count -gt 0 ]]; then
-        ## 如果日志文件超过1分钟没有更新, 则结束现有的以便重新启动
+        ## 如果日志文件超过3分钟没有更新, 则结束现有的以便重新启动
         local current_time=$(date +%s)
         local file_mod_time=$(stat -c %Y "$session_log_path")   # 获取文件最后修改时间戳
         local time_diff=$((current_time - file_mod_time))   # 计算文件最后修改时间与当前时间的差值（单位：秒）
-        if [[ $time_diff -gt 60 ]]
-        then
+        if [[ $time_diff -gt 180 ]]; then
             screen -S ${session_name} -X quit
         else
             # 如果日志文件在1分钟内更新，则提示正在运行
