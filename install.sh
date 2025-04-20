@@ -84,7 +84,8 @@ if [ -f /.dockerenv ] || grep -qE "docker|kubepods" /proc/1/cgroup || [[ ${isWSL
     echoCyan "Running inside Docker"
     in_container="true"
     apt update
-    apt install -y iproute2 dmidecode lsb-release pciutils screen jq supervisor procps gettext libjansson-dev bc netcat
+    apt install -y iproute2 dmidecode lsb-release pciutils screen jq supervisor procps gettext libjansson-dev bc 
+    apt install -y netcat
 fi
 
 ##################################################################
