@@ -81,7 +81,7 @@ fi
 in_container="false"
 ## 检查是否为容器环境
 if [ -f /.dockerenv ] || grep -qE "docker|kubepods" /proc/1/cgroup || [[ ${isWSL} = "true" ]]; then
-    echoCyan "Running inside Docker"
+    echoCyan "Running inside Docker Or WSL"
     in_container="true"
     apt update
     apt install -y iproute2 dmidecode lsb-release pciutils screen jq supervisor procps gettext libjansson-dev bc 
