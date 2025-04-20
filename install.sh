@@ -85,7 +85,8 @@ if [ -f /.dockerenv ] || grep -qE "docker|kubepods" /proc/1/cgroup || [[ ${isWSL
     in_container="true"
     apt update
     apt install -y iproute2 dmidecode lsb-release pciutils screen jq supervisor procps gettext libjansson-dev bc 
-    apt install -y netcat
+    apt install -y netcat  2>/dev/null
+    apt install -y netcat-openbsd  2>/dev/null
 fi
 
 ##################################################################
