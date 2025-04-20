@@ -248,9 +248,12 @@ if command -v ss >/dev/null 2>&1; then
         echo "ttyd is already running"
     else
         cp /os/service/os-ttyd.service /etc/systemd/system/
-        systemctl daemon-reload
-        systemctl enable os-ttyd.service
-        systemctl restart os-ttyd.service
+
+        if [[ ${in_container} != "true" ]] && [[ ${isWSL} != "true" ]]; then
+            systemctl daemon-reload
+            systemctl enable os-ttyd.service
+            systemctl restart os-ttyd.service
+        fi
     fi
 fi
 
