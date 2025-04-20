@@ -331,6 +331,7 @@ EOF
     ## 设置 supervisor 自动启动
     sed -i "/^pgrep supervisord/d" /root/.bashrc
     echo 'pgrep supervisord >/dev/null || /usr/bin/supervisord -c /etc/supervisor/supervisord.conf' >> /root/.bashrc
+    echo 'pgrep supervisord >/dev/null || /usr/bin/supervisord -c /etc/supervisor/supervisord.conf' >> /etc/profile
 else
     cp /os/service/os-core.service /etc/systemd/system/
     systemctl daemon-reload
