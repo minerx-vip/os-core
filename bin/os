@@ -349,6 +349,9 @@ case ${tag} in
     logs)
         logs
     ;;
+    log)
+        logs
+    ;;
     pause)
         pause
     ;;
