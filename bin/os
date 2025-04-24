@@ -36,8 +36,6 @@ kill_hanged() {
 
 ## 启动session_name="os_miner_${wallet}"
 start() {
-    
-
     ## TODO 临时处理
     cp -f /os/miners/custom/h-manifest.conf.default /os/miners/custom/h-manifest.conf
     cp -f /os/miners/custom/h-config.sh.default /os/miners/custom/h-config.sh
@@ -64,7 +62,8 @@ start() {
         time_diff=$((current_time - last_modified))
         # 判断是否超过 30 秒
         if [ "$time_diff" -lt 30 ]; then
-            echo "暂停文件的最后修改时间在 30 秒内，跳过启动"
+            echo "暂停文件的最后修改时间在 30 秒内，需要停止 ${wallet}"
+            stop
             return
         fi
     fi
@@ -81,8 +80,9 @@ start() {
             screen -S ${session_name} -X quit
         else
             # 如果日志文件在1分钟内更新，则提示正在运行
-            echo -e "${YELLOW}Miner screen is already running${NOCOLOR}"
-            echo -e "Run ${CYAN}screen -r ${session_name}${NOCOLOR} to resume screen"
+            echo -e "${wallet} Miner screen is already running"
+            # echo -e "Run ${YELLOW}screen -r ${session_name}${NOCOLOR} to resume screen"
+            echo "Run 'screen -r ${session_name}' to resume screen"
             return
         fi
     fi
@@ -121,7 +121,6 @@ start() {
 
     # 关闭 bash 窗口 #0
     # screen -S ${session_name} -p bash -X stuff 'exit\n'
-
     return 0
 }
 
@@ -250,6 +249,8 @@ auto(){
     for wallet_path in ${wallets}
     do
         wallet=$(basename "${wallet_path}" .conf)
+        echo
+        echoCyan "------------------------------------------------------------ Preparing to process ${wallet}"
         conf_running_path="/run/os/${wallet}.conf"
         ## 如果运行时文件有，则对比决定是否要重启
         if [[ -f ${conf_running_path} ]]; then
