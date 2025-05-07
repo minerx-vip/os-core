@@ -2,6 +2,11 @@
 # Usage: nvidia-oc delay|log|stop|reset|nocolor|quiet
 
 
+## 兼容 WSL 环境
+if [[ -d /usr/lib/wsl/lib ]] && [[ ":$PATH:" != *":/usr/lib/wsl/lib:"* ]]; then
+    export PATH="/usr/lib/wsl/lib:$PATH"
+fi
+
 # 定义JSON文件路径
 # JSON_FILE="/os/config/oc-nvidia.json"
 source /os/bin/colors

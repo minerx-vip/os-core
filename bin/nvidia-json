@@ -6,6 +6,11 @@ if [[ -e $PCIIDS && $PCIIDS -nt /usr/share/misc/pci.ids ]]; then
         cp -f $PCIIDS /usr/share/misc/pci.ids
 fi
 
+## 兼容 WSL 环境
+if [[ -d /usr/lib/wsl/lib ]] && [[ ":$PATH:" != *":/usr/lib/wsl/lib:"* ]]; then
+    export PATH="/usr/lib/wsl/lib:$PATH"
+fi
+
 mkdir -p /run/os/
 
 # 定义要查询的字段

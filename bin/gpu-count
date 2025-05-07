@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+## 兼容 WSL 环境
+if [[ -d /usr/lib/wsl/lib ]] && [[ ":$PATH:" != *":/usr/lib/wsl/lib:"* ]]; then
+    export PATH="/usr/lib/wsl/lib:$PATH"
+fi
 
 in_container="false"
 ## 检查是否为容器或 WSL 环境

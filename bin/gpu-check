@@ -5,6 +5,11 @@ if [[ $# -lt 1 ]]; then
 	exit 1
 fi
 
+## 兼容 WSL 环境
+if [[ -d /usr/lib/wsl/lib ]] && [[ ":$PATH:" != *":/usr/lib/wsl/lib:"* ]]; then
+    export PATH="/usr/lib/wsl/lib:$PATH"
+fi
+
 source /os/bin/colors
 
 IGPU_FIRST=1
