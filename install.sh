@@ -103,7 +103,14 @@ if ! command -v jq >/dev/null 2>&1; then
     apt update
     apt install jq -y
 fi
-
+if ! command -v curl >/dev/null 2>&1; then
+    apt update
+    apt install curl -y
+fi
+if ! command -v wget >/dev/null 2>&1; then
+    apt update
+    apt install wget -y
+fi
 if ! command -v screen >/dev/null 2>&1; then
     apt update
     apt install screen -y
