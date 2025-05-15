@@ -60,9 +60,9 @@ start() {
         current_time=$(date +%s)
         # 计算文件的修改时间与当前时间的差值
         time_diff=$((current_time - last_modified))
-        # 判断是否超过 30 秒
-        if [ "$time_diff" -lt 30 ]; then
-            echo "暂停文件的最后修改时间在 30 秒内，需要停止 ${wallet}"
+        # 判断是否超过 120 秒
+        if [ "$time_diff" -lt 120 ]; then
+            echo "暂停文件的最后修改时间在 120 秒内，需要停止 ${wallet}"
             stop
             return
         fi
