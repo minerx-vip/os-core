@@ -204,6 +204,22 @@ if [[ ${gpu_count_nvidia} -gt 0 ]]; then
     fi
 fi
 
+## 获取 AMD 显卡列表
+if [[ ${gpu_count_amd} -gt 0 ]]; then
+    ## Hive 版本
+    if command -v nvtool >/dev/null 2>&1; then
+        # gpus=$(/hive/sbin/gpu-detect listjson 2>&1)
+        gpus=$(cat /run/hive/gpu-detect.json)
+    fi
+
+    ## 验证 gpus 是否为合法的 JSON
+    echo "$gpus" | jq . >/dev/null 2>&1
+    if [[ $? -ne 0 ]]; then
+        ## 如果不是合法的 JSON，设置为默认值
+        gpus="[]"
+    fi
+fi
+
 ## 获取主机名
 if [[ -z ${worker_name} ]] || [[ ${worker_name} == "" ]]; then
     worker_name=`hostname`
