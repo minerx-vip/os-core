@@ -450,7 +450,7 @@ for ((i=0; i<wallets_len; i++)); do
     # fi
 done
 ## 删除现有钱包 && 更新
-rm -f /os/wallet/* && mv /tmp/wallet/*.conf /os/wallet/
+rm -f /os/wallet/* && [ "$(ls -A /tmp/wallet/ 2>/dev/null)" ] && mv /tmp/wallet/*.conf /os/wallet/
 
 
 ##########################################################################################
