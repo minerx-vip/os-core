@@ -13,6 +13,10 @@ down_uri="https://minerx-download.oss-cn-shanghai.aliyuncs.com"
 source /os/config/rig.conf
 backup_down_uri="$down_uri_ip"
 
+## 兼容 snap
+if [ -d "/snap/bin" ] && [[ ":$PATH:" != *":/snap/bin:"* ]]; then
+    export PATH="$PATH:/snap/bin"
+fi
 
 ##################################################################
 ## 下载文件并提取

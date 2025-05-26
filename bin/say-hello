@@ -10,6 +10,11 @@
 source /os/bin/colors
 echoCyan "------------------------------------------------------------------ Try to say hello"
 
+## 兼容 snap
+if [ -d "/snap/bin" ] && [[ ":$PATH:" != *":/snap/bin:"* ]]; then
+    export PATH="$PATH:/snap/bin"
+fi
+
 ## 兼容 WSL 环境
 if [[ -d /usr/lib/wsl/lib ]] && [[ ":$PATH:" != *":/usr/lib/wsl/lib:"* ]]; then
     export PATH="/usr/lib/wsl/lib:$PATH"
