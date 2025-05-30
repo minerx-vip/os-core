@@ -61,6 +61,7 @@ function rmfile_from_symlink() {
 
 ## 获取状态并推送到服务器
 stats(){
+    IS_PAUSED=0
     ## 查找所有配置文件
     for wallet_filename in `ls /os/wallet/*.conf`
     do
@@ -105,7 +106,7 @@ stats(){
         if [[ ${session_count} -eq 0 ]]
         then
             IS_RUNNING=0
-            continue
+            # continue
         else
             IS_RUNNING=1
         fi
@@ -151,6 +152,7 @@ stats(){
             if [ "$time_diff" -lt 120 ]; then
                 echo "暂停文件的最后修改时间在 120 秒内，需要停止 ${wallet}"
                 khs=9999
+                IS_PAUSED=1
             fi
         fi
 
@@ -179,6 +181,7 @@ say_to_server(){
         --arg is_running "$IS_RUNNING" \
         --arg stats_file_exists $STATS_FILE_EXISTS \
         --arg khs "$khs" \
+        --arg is_paused "$IS_PAUSED" \
         --argjson stats "$stats" \
         '
         {
@@ -187,7 +190,7 @@ say_to_server(){
                 $digital_cash, $farm_hash, $rig_id, $fs_name,
                 $log_idle, $is_running, $stats_file_exists,
                 $execution_time,
-                $khs, $stats
+                $khs, $is_paused, $stats
             }
         }
         '
