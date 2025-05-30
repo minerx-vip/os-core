@@ -137,6 +137,24 @@ stats(){
             fi
         fi
 
+
+        ## 是否处于暂停状态
+        local pause_file="/run/os/os_miner_${wallet}.pause"
+        if [[ -f ${pause_file} ]]; then
+            # 获取文件的最后修改时间（秒级时间戳）
+            last_modified=$(stat -c %Y "${pause_file}")
+            # 获取当前时间（秒级时间戳）
+            current_time=$(date +%s)
+            # 计算文件的修改时间与当前时间的差值
+            time_diff=$((current_time - last_modified))
+            # 判断是否超过 120 秒
+            if [ "$time_diff" -lt 120 ]; then
+                echo "暂停文件的最后修改时间在 120 秒内，需要停止 ${wallet}"
+                khs=9999
+            fi
+        fi
+
+
        ## 获取结束时间 - 用于计算程序耗时
        end_time=$(date +%s)
        execution_time=$((end_time - start_time))
