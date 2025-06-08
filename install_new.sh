@@ -235,8 +235,8 @@ if [[ ${use_ip_as_hostname} == 'true' ]] || [[ ${use_public_ip_as_hostname} == '
         IP_STR=$(echo "$IP" | tr '.' '-')
     fi
     sed -i '/^worker_name/d' /os/config/rig.conf
-    echo "worker_name=\"ip_${IP_STR}\"" >> /os/config/rig.conf
-    message="Use ${IP_STR} as the hostname"
+    echo "worker_name=\"ip-${IP_STR}\"" >> /os/config/rig.conf
+    message="Use ip-${IP_STR} as the hostname"
 fi
 
 
