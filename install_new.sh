@@ -217,7 +217,7 @@ fi
 
 if [[ ${use_ip_as_hostname} == 'true' ]] || [[ ${use_public_ip_as_hostname} == 'true' ]] || [[ ${use_ip_as_hostname_allow} == 'true' ]]; then
 
-    if [[ ${use_ip_as_hostname} == 'true' ]] || [[ ${use_ip_as_hostname_allow} == 'true' ]]; then
+    if [[ ${use_ip_as_hostname} == 'true' ]] then
         IP=$(ip route get 8.8.8.8 | awk '{for (i=1;i<=NF;i++) if ($i=="src") print $(i+1)}')
         IFS='.' read -r -a ip_parts <<< "$IP"
         for i in "${!ip_parts[@]}"; do
@@ -231,6 +231,10 @@ if [[ ${use_ip_as_hostname} == 'true' ]] || [[ ${use_public_ip_as_hostname} == '
             ip_parts[$i]=$(printf "%03d" "${ip_parts[$i]}")
         done
         IP_STR="${ip_parts[0]}_${ip_parts[1]}_${ip_parts[2]}_${ip_parts[3]}"
+    elif [[ ${use_ip_as_hostname_allow} == 'true' ]]; then
+        # 获取当前主机 IP
+        IP=$(ip route get 8.8.8.8 | awk '{for (i=1;i<=NF;i++) if ($i=="src") print $(i+1)}' | tr -d '\r\n ')
+        IP_STR=$(echo "$IP" | tr '.' '-')
     fi
     sed -i '/^worker_name/d' /os/config/rig.conf
     echo "worker_name=\"ip_${IP_STR}\"" >> /os/config/rig.conf
