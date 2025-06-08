@@ -225,15 +225,24 @@ if [[ ${use_ip_as_hostname} == 'true' ]] || [[ ${use_public_ip_as_hostname} == '
         # done
         # IP_STR="${ip_parts[2]}_${ip_parts[3]}"
         IP=$(ip route get 8.8.8.8 | awk '{for (i=1;i<=NF;i++) if ($i=="src") print $(i+1)}' | tr -d '\r\n ')
-        IP_STR=$(echo "$IP" | tr '.' '-')
+        # IP_STR=$(echo "$IP" | tr '.' '-')
     elif [[ ${use_public_ip_as_hostname} == 'true' ]]; then
         IP=$(curl -s ifconfig.me)
-        IP_STR=$(echo "$IP" | tr '.' '-')
+        # IP_STR=$(echo "$IP" | tr '.' '-')
     elif [[ ${use_ip_as_hostname_allow} == 'true' ]]; then
         # 获取当前主机 IP
         IP=$(ip route get 8.8.8.8 | awk '{for (i=1;i<=NF;i++) if ($i=="src") print $(i+1)}' | tr -d '\r\n ')
-        IP_STR=$(echo "$IP" | tr '.' '-')
+        # IP_STR=$(echo "$IP" | tr '.' '-')
     fi
+
+    ## 拼接 IP 地址
+    IFS='.' read -r -a ip_parts <<< "$IP"
+    for i in "${!ip_parts[@]}"; do
+        ip_parts[$i]=$(printf "%03d" "${ip_parts[$i]}")
+    done
+    IP_STR=$(IFS=- ; echo "${ip_parts[*]}")
+    
+    ## 替换配置文件
     sed -i '/^worker_name/d' /os/config/rig.conf
     echo "worker_name=\"ip-${IP_STR}\"" >> /os/config/rig.conf
     message="Use ip-${IP_STR} as the hostname"
