@@ -251,8 +251,7 @@ fi
 
 ## 如果设置了永远使用内网 IP 作为主机名的话，将其写入到 rig.conf
 if [[ ${use_ip_as_hostname_allow} == 'true' ]]; then
-    sed -i '/^use_ip_as_hostname_allow/d' /os/config/rig.conf
-    echo 'use_ip_as_hostname_allow=true' >> /os/config/rig.conf
+    touch /os/config/use_ip_as_hostname_allow
 fi
 
 ##################################################################
