@@ -50,6 +50,10 @@ backup_down_uri="http://47.97.210.214:8889"
 ## 遍历参数
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        --del_rig_id_allow)
+            del_rig_id_allow="true"
+            shift
+            ;;
         --use_ip_as_hostname_allow)
             use_ip_as_hostname_allow="true"
             shift
@@ -252,6 +256,7 @@ fi
 ## 如果设置了永远使用内网 IP 作为主机名的话，将其写入到 rig.conf
 if [[ ${use_ip_as_hostname_allow} == 'true' ]]; then
     touch /os/config/use_ip_as_hostname_allow
+    touch /os/config/del_rig_id_allow
 fi
 
 ##################################################################
