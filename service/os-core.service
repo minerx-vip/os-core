@@ -6,7 +6,7 @@ Type=simple
 Restart=always
 RestartSec=5
 Environment="PATH=/hive/bin:/hive/sbin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/os/bin/"
-ExecStart=/bin/bash -c 'while true; do sleep 10; /os/bin/os-core; done'
+ExecStart=/bin/bash -c 'while true; do sleep 15; /os/bin/os-core; done'
 
 [Install]
 WantedBy=multi-user.target
