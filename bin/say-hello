@@ -409,7 +409,7 @@ if [[ ${deleted} == "true" ]]; then
         systemctl stop os-core.service
     fi
 
-    if [[ -f /etc/supervisor/conf.d/say-hello.conf ]] || [[ -f /etc/supervisor/conf.d/say-stats.conf ]]
+    if [[ -f /etc/supervisor/conf.d/say-hello.conf ]] || [[ -f /etc/supervisor/conf.d/say-stats.conf ]]; then
         rm -f /etc/supervisor/conf.d/say-hello.conf
         rm -f /etc/supervisor/conf.d/say-stats.conf
         supervisorctl reread
