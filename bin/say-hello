@@ -78,18 +78,34 @@ if [[ -f /os/config/del_rig_id_allow ]]; then
 fi
 
 ##########################################################################################
-## 系统重启后延迟1分钟启动
+## 显卡数量
 ##########################################################################################
+gpu_count_amd=`/os/bin/gpu-count AMD`
+gpu_count_nvidia=`/os/bin/gpu-count NVIDIA`
+gpu_count_intel=`/os/bin/gpu-count INTEL`
+
+
+##########################################################################################
+## 系统重启后延迟启动
+##########################################################################################
+## 设置启动后等待时间（秒）
+## 根据GPU数量设置不同的等待时间：有GPU则等待120秒，无GPU则等待10秒
+if [ $gpu_count_amd -gt 0 ] || [ $gpu_count_nvidia -gt 0 ]; then
+    BOOT_WAIT_TIME_SECONDS=120
+else
+    BOOT_WAIT_TIME_SECONDS=10
+fi
+
 ## 启动时间
 boot_time=$(( `date +%s` - `awk '{printf "%d", $1}' /proc/uptime` ))
 ## 当前时间
 current_timestamp=$(date +%s)
 time_difference=$((current_timestamp - boot_time))
-if [ $time_difference -lt 120 ]; then
+if [ $time_difference -lt $BOOT_WAIT_TIME_SECONDS ]; then
     if command -v nvidia-smi &> /dev/null; then
         [[ $(nvidia-smi -q | grep "Persistence Mode" | grep Disable | wc -l) -gt 0 ]] && nvidia-smi -pm 1
     fi
-    echo -e "System rebooted. Waiting 120 seconds..."
+    echo -e "System rebooted. Waiting $BOOT_WAIT_TIME_SECONDS seconds..."
     exit 0
 fi
 
@@ -200,10 +216,6 @@ else
     hive_version=""
 fi
 
-## 显卡数量
-gpu_count_amd=`/os/bin/gpu-count AMD`
-gpu_count_nvidia=`/os/bin/gpu-count NVIDIA`
-gpu_count_intel=`/os/bin/gpu-count INTEL`
 
 ## 获取 Nvidia 显卡列表
 gpus="[]"
