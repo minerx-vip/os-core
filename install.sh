@@ -40,6 +40,7 @@ echoWhite(){
 message=""
 farmid=""
 use_ip_as_hostname="false"
+use_ip_as_hostname_allow="false"
 use_public_ip_as_hostname="false"
 force="false"
 down_uri="https://minerx-download.oss-cn-shanghai.aliyuncs.com"
@@ -49,6 +50,10 @@ backup_down_uri="http://47.97.210.214:8889"
 ## 遍历参数
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        --use_ip_as_hostname_allow)
+            use_ip_as_hostname_allow="true"
+            shift
+            ;;
         --use_ip_as_hostname)
             use_ip_as_hostname="true"
             shift
@@ -210,28 +215,44 @@ if [[ ${use_public_ip_as_hostname} == 'true' ]]; then
 fi
 
 
-if [[ ${use_ip_as_hostname} == 'true' ]] || [[ ${use_public_ip_as_hostname} == 'true' ]]; then
+if [[ ${use_ip_as_hostname} == 'true' ]] || [[ ${use_public_ip_as_hostname} == 'true' ]] || [[ ${use_ip_as_hostname_allow} == 'true' ]]; then
 
     if [[ ${use_ip_as_hostname} == 'true' ]]; then
-        IP=$(ip route get 8.8.8.8 | awk '{for (i=1;i<=NF;i++) if ($i=="src") print $(i+1)}')
-        IFS='.' read -r -a ip_parts <<< "$IP"
-        for i in "${!ip_parts[@]}"; do
-            ip_parts[$i]=$(printf "%03d" "${ip_parts[$i]}")
-        done
-        IP_STR="${ip_parts[2]}_${ip_parts[3]}"
+        # IP=$(ip route get 8.8.8.8 | awk '{for (i=1;i<=NF;i++) if ($i=="src") print $(i+1)}')
+        # IFS='.' read -r -a ip_parts <<< "$IP"
+        # for i in "${!ip_parts[@]}"; do
+        #     ip_parts[$i]=$(printf "%03d" "${ip_parts[$i]}")
+        # done
+        # IP_STR="${ip_parts[2]}_${ip_parts[3]}"
+        IP=$(ip route get 8.8.8.8 | awk '{for (i=1;i<=NF;i++) if ($i=="src") print $(i+1)}' | tr -d '\r\n ')
+        # IP_STR=$(echo "$IP" | tr '.' '-')
     elif [[ ${use_public_ip_as_hostname} == 'true' ]]; then
         IP=$(curl -s ifconfig.me)
-        IFS='.' read -r -a ip_parts <<< "$IP"
-        for i in "${!ip_parts[@]}"; do
-            ip_parts[$i]=$(printf "%03d" "${ip_parts[$i]}")
-        done
-        IP_STR="${ip_parts[0]}_${ip_parts[1]}_${ip_parts[2]}_${ip_parts[3]}"
+        # IP_STR=$(echo "$IP" | tr '.' '-')
+    elif [[ ${use_ip_as_hostname_allow} == 'true' ]]; then
+        # 获取当前主机 IP
+        IP=$(ip route get 8.8.8.8 | awk '{for (i=1;i<=NF;i++) if ($i=="src") print $(i+1)}' | tr -d '\r\n ')
+        # IP_STR=$(echo "$IP" | tr '.' '-')
     fi
+
+    ## 拼接 IP 地址
+    IFS='.' read -r -a ip_parts <<< "$IP"
+    for i in "${!ip_parts[@]}"; do
+        ip_parts[$i]=$(printf "%03d" "${ip_parts[$i]}")
+    done
+    IP_STR=$(IFS=- ; echo "${ip_parts[*]}")
+    
+    ## 替换配置文件
     sed -i '/^worker_name/d' /os/config/rig.conf
-    echo "worker_name=\"ip_${IP_STR}\"" >> /os/config/rig.conf
-    message="Use ${IP_STR} as the hostname"
+    echo "worker_name=\"ip-${IP_STR}\"" >> /os/config/rig.conf
+    message="Use ip-${IP_STR} as the hostname"
 fi
 
+
+## 如果设置了永远使用内网 IP 作为主机名的话，将其写入到 rig.conf
+if [[ ${use_ip_as_hostname_allow} == 'true' ]]; then
+    touch /os/config/use_ip_as_hostname_allow
+fi
 
 ##################################################################
 ## Add environment variables
