@@ -66,6 +66,7 @@ done
 ##########################################################################################
 if [[ -f /os/config/use_ip_as_hostname_allow ]]; then
     register="true"
+    use_ip_as_hostname_allow="true"
 fi
 
 
@@ -234,6 +235,18 @@ fi
 ## 获取主机名
 if [[ -z ${worker_name} ]] || [[ ${worker_name} == "" ]]; then
     worker_name=`hostname`
+fi
+
+## 如果设置了永远使用内网 IP 作为主机名的话
+if [[ ${use_ip_as_hostname_allow} == 'true' ]]; then
+    IP=$(ip route get 8.8.8.8 | awk '{for (i=1;i<=NF;i++) if ($i=="src") print $(i+1)}' | tr -d '\r\n ')
+    ## 拼接 IP 地址
+    IFS='.' read -r -a ip_parts <<< "$IP"
+    for i in "${!ip_parts[@]}"; do
+        ip_parts[$i]=$(printf "%03d" "${ip_parts[$i]}")
+    done
+    IP_STR=$(IFS=- ; echo "${ip_parts[*]}")
+    worker_name="ip-${IP_STR}"
 fi
 
 ## 获取 CPU 使用率
