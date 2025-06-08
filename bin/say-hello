@@ -155,9 +155,10 @@ else
 fi
 
 ## CPU 信息
-cpu_model=`lscpu | grep "Model name:" | sed 's/Model name:[ \t]*//g'`
-cpu_cores=`lscpu | grep "^CPU(s):" | sed 's/CPU(s):[ \t]*//g'`
-aes=`lscpu | grep "^Flags:.*aes" | wc -l`
+## 强制使用英文输出，避免不同语言环境的问题
+cpu_model=`LC_ALL=C lscpu | grep "Model name:" | sed 's/Model name:[ \t]*//g'`
+cpu_cores=`LC_ALL=C lscpu | grep "^CPU(s):" | sed 's/CPU(s):[ \t]*//g'`
+aes=`LC_ALL=C lscpu | grep "^Flags:.*aes" | wc -l`
 
 # 容器或WSL中运行的话，需要执行不同的逻辑
 if [[ ${in_container} == "true" || ${isWSL} == "true" ]]; then
