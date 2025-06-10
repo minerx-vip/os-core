@@ -205,12 +205,58 @@ say_to_server(){
     fi
 
 
-    api="${server_url}/worker/report"
-    response=`curl -X POST \
+    ## 随机选择一个地址进行发送
+    random_number=$((RANDOM % 2))
+    if [[ $random_number -eq 0 ]]; then
+        primary_api="${server_url}/worker/report"
+        backup_api="${server_url_domain}/worker/report"
+        primary_type="server_url"
+        backup_type="server_url_domain"
+    else
+        primary_api="${server_url_domain}/worker/report"
+        backup_api="${server_url}/worker/report"
+        primary_type="server_url_domain"
+        backup_type="server_url"
+    fi
+    
+    ## 尝试首选API
+    response=`curl -s -w "\n%{http_code}" -X POST \
         -H "Content-Type: application/json" \
         --connect-timeout 7 --max-time 15 \
         -d "$request" \
-        ${api}`
+        ${primary_api}`
+        
+    ## 提取HTTP状态码和响应内容
+    http_code=$(echo "$response" | tail -n1)
+    response_body=$(echo "$response" | sed '$ d')
+    
+    ## 检查请求是否成功 (2xx 状态码)
+    if [[ $http_code -ge 200 && $http_code -lt 300 ]]; then
+        response=$response_body
+    else
+        ## 首选API失败，切换到备用API
+        echoYellow "使用 $primary_type 请求失败，HTTP状态码: $http_code，切换到 $backup_type"
+        
+        ## 等待2秒后重试
+        sleep 2
+        
+        ## 使用备用API重试
+        response=`curl -s -w "\n%{http_code}" -X POST \
+            -H "Content-Type: application/json" \
+            --connect-timeout 7 --max-time 15 \
+            -d "$request" \
+            ${backup_api}`
+            
+        ## 提取HTTP状态码和响应内容
+        http_code=$(echo "$response" | tail -n1)
+        response_body=$(echo "$response" | sed '$ d')
+        
+        if [[ $http_code -ge 200 && $http_code -lt 300 ]]; then
+            response=$response_body
+        else
+            echoRed "使用 $backup_type 也失败了，HTTP状态码: $http_code"
+        fi
+    fi
 
     if [[ ${tag_debug} == 1 ]]
     then
