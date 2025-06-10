@@ -372,11 +372,24 @@ if [[ -z "${request}" ]]; then
 fi
 
 ##########################################################################################
-## 发送请求
+## 发送请求 - 随机选择一个URL
 ##########################################################################################
-## 直接发送 JSON 文本请求
-api="${server_url}/worker/report"
-[[ ${tag_debug} == 1 ]] && echo "API = ${api}"
+## 随机选择使用哪个URL
+random_number=$((RANDOM % 2))  # 生成0或1的随机数
+exitcode=1  # 默认设置为失败状态
+
+## 根据随机数选择URL
+if [[ $random_number -eq 0 ]]; then
+    api="${server_url}/worker/report"
+    url_type="server_url"
+else
+    api="${server_url_domain}/worker/report"
+    url_type="server_url_domain"
+fi
+
+[[ ${tag_debug} == 1 ]] && echo "随机选择: $url_type, API = ${api}"
+
+## 发送请求
 response=`curl -X POST \
     -H "Content-Type: application/json" \
     --connect-timeout 7 --max-time 15 \
@@ -387,27 +400,31 @@ exitcode=$?
 
 
 ##########################################################################################
-## 处理错误
+## 处理错误 - 如果第一个URL失败，尝试另一个URL
 ##########################################################################################
-exitcode_domain=0
 if [[ $exitcode -ne 0 ]]; then
-    echoRed "ERROR: connection to API server failed $api, $response, Use domain API instead" 
-
-    ## 如果失败，则使用直接使用域名访问
-    api="${server_url_domain}/worker/report"
-    [[ ${tag_debug} == 1 ]] && echo "API = ${api}"
+    echoRed "ERROR: connection to API server failed $api, $response, Trying alternative URL"
+    
+    ## 如果第一个URL失败，尝试另一个URL
+    if [[ "$url_type" == "server_url" ]]; then
+        api="${server_url_domain}/worker/report"
+        [[ ${tag_debug} == 1 ]] && echo "尝试备用URL: API = ${api}"
+    else
+        api="${server_url}/worker/report"
+        [[ ${tag_debug} == 1 ]] && echo "尝试备用URL: API = ${api}"
+    fi
+    
     response=`curl -X POST \
         -H "Content-Type: application/json" \
         --connect-timeout 7 --max-time 15 \
         -d "$request" \
         ${api}`
-    exitcode_domain=$?
+    exitcode=$?
+    [[ ${tag_debug} == 1 ]] && echo "状态码: ${exitcode} 返回值: $response"
 fi
 
-[[ ${tag_debug} == 1 ]] && echo "状态码: ${exitcode_domain} 返回值: $response"
-
-if [[ $exitcode_domain -ne 0 ]]; then
-    echoRed "ERROR: connection to API server failed $api, $response, exit" 
+if [[ $exitcode -ne 0 ]]; then
+    echoRed "ERROR: connection to all API servers failed, exit" 
     exit 1
 fi
 
