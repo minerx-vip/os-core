@@ -404,6 +404,8 @@ if [[ $exitcode -ne 0 ]]; then
     exitcode_domain=$?
 fi
 
+[[ ${tag_debug} == 1 ]] && echo "状态码: ${exitcode_domain} 返回值: $response"
+
 if [[ $exitcode_domain -ne 0 ]]; then
     echoRed "ERROR: connection to API server failed $api, $response, exit" 
     exit 1
