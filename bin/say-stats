@@ -78,7 +78,7 @@ stats(){
         export MINER_DIR=/os/miners/$MINER_NAME/$CUSTOM_NAME
 
         ## 取钱包文件名称
-        wallet=$(basename "${wallet_filename}" .conf)
+        wallet=$(basename "${wallet_filename}".conf)
 
         ## 检查程序日志是有更新
         # 获取当前时间戳
