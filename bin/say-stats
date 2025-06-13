@@ -207,6 +207,10 @@ say_to_server(){
 
     ## 随机选择一个地址进行发送
     random_number=$((RANDOM % 2))
+
+    ## 手动指定默认使用域名地址
+    random_number=0
+
     if [[ $random_number -eq 0 ]]; then
         primary_api="${server_url}/worker/report"
         backup_api="${server_url_domain}/worker/report"
@@ -238,7 +242,7 @@ say_to_server(){
         echoYellow "使用 $primary_type 请求失败，HTTP状态码: $http_code，切换到 $backup_type"
         
         ## 等待2秒后重试
-        sleep 2
+        # sleep 2
         
         ## 使用备用API重试
         response=`curl -s -w "\n%{http_code}" -X POST \

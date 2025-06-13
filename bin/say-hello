@@ -378,6 +378,9 @@ fi
 random_number=$((RANDOM % 2))  # 生成0或1的随机数
 exitcode=1  # 默认设置为失败状态
 
+## 手动指定默认使用域名地址
+random_number=0
+
 ## 根据随机数选择URL
 if [[ $random_number -eq 0 ]]; then
     api="${server_url}/worker/report"
