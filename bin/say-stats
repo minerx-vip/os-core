@@ -61,11 +61,11 @@ function rmfile_from_symlink() {
 
 ## 获取状态并推送到服务器
 stats(){
-    IS_PAUSED=0
+    
     ## 查找所有配置文件
     for wallet_filename in `ls /os/wallet/*.conf`
     do
-
+        IS_PAUSED=0
         unset khs
         unset stats
 
