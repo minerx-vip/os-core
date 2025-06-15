@@ -151,7 +151,7 @@ stats(){
             # 判断是否超过 120 秒
             if [ "$time_diff" -lt 120 ]; then
                 echo "暂停文件的最后修改时间在 120 秒内，需要停止 ${wallet}"
-                khs=9999
+                # khs=9999
                 IS_PAUSED=1
             fi
         fi
