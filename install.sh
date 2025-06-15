@@ -280,7 +280,7 @@ fi
 
 # 再次检查 ss 是否可用
 if command -v ss >/dev/null 2>&1; then
-    if ss -lntp | grep -q ":4200"; then
+    if ss -lnt | grep -q ":4200"; then
         echo "ttyd is already running"
     else
         cp /os/service/os-ttyd.service /etc/systemd/system/
