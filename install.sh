@@ -205,8 +205,8 @@ if [[ ! -z ${farmid} ]]; then
     echo "worker_name=`hostname`" >> /os/config/rig.conf
 
     sed -i '/^server_url/d' /os/config/rig.conf
-    echo 'server_url="http://47.97.210.214:8888"' >> /os/config/rig.conf
-    echo 'server_url_domain="https://api.minerx.vip"' >> /os/config/rig.conf
+    echo 'server_url="http://report.minerx.vip:8888"' >> /os/config/rig.conf
+    echo 'server_url_domain="http://114.215.172.228:8888"' >> /os/config/rig.conf
 fi
 
 
