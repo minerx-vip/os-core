@@ -65,6 +65,10 @@ stats(){
     ## 查找所有配置文件
     for wallet_filename in `ls /os/wallet/*.conf`
     do
+
+        unset khs
+        unset stats
+
         # 获取开始时间 - 用于计算程序耗时
         start_time=$(date +%s)
 
