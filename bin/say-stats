@@ -171,8 +171,11 @@ stats(){
 }
 
 say_to_server(){
+    ## 赋予空值
     [[ -z "$khs" ]] && khs=0
-    [[ -z "$stats" ]] && stats="{}"
+    if [[ -z "$stats" ]] || [[ "$stats" == "null" ]]; then
+        stats="{}"
+    fi
 
     request=$(
         jq -n \
