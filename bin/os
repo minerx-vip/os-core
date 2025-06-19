@@ -70,6 +70,18 @@ start() {
 
     ## 获取正在运行的 miner 会话数量
     session_count=`screen -ls ${session_name} | grep -c ".${session_name}"`
+
+    ## 如果数量 > 1，则说明出问题了，结束掉所有的，重新启动
+    if [[ $session_count -gt 1 ]]; then
+        for sid in $(screen -ls | awk -v name="${session_name}" '$0 ~ name {print $1}'); do
+            echoYellow "------------------------------------- screen count > 1, Killing screen: ${sid}"
+            screen -S "${sid}" -X quit
+        done
+        sleep 1
+        ## 并重新获取数量
+        session_count=`screen -ls ${session_name} | grep -c ".${session_name}"`
+    fi
+
     ## 如果数量 > 0，提示已经在运行了
     if [[ $session_count -gt 0 ]]; then
         ## 如果日志文件超过3分钟没有更新, 则结束现有的以便重新启动
