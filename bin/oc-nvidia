@@ -201,7 +201,11 @@ handle_oc_config() {
                 # apply_nvml "-i $i --setclocks $setclocks" || exitcode=$?
                 apply_nvml "-i $i --setcore $setclocks" || exitcode=$?
                 apply_nvml "-i $i --setmem $setmem" || exitcode=$?
-                apply_nvml "-i $i --setfan $setfan" || exitcode=$?
+                if [[ "$name" == *"170HX"* ]]; then
+                    echo "这是 170HX 显卡, 跳过设置风扇"
+                else
+                    apply_nvml "-i $i --setfan $setfan" || exitcode=$?
+                fi
             fi
         fi
     done
