@@ -363,12 +363,34 @@ request=$(
 )
 [[ ${tag_debug} == 1 ]] && echo "Request: ${request}"
 
+
+## 压缩并 base64 编码
+request_temp=$(echo ${request} | gzip -9 --stdout | base64 -w 0)
+request_gzip=$(
+    jq -n \
+    --arg request_temp "$request_temp" \
+    '{
+        "method": "hello", "jsonrpc": "2.0", "id": 0,
+        "is_gzip": true,
+        "request": $request_temp
+    }'
+)
+
 ##########################################################################################
 ## 如果 request 为空，则不进行请求
 ##########################################################################################
 if [[ -z "${request}" ]]; then
     echoRed "say-hello: Request is empty, exit"
     exit 0
+fi
+
+##########################################################################################
+# 判断 curl 是否支持 --compressed
+##########################################################################################
+if curl --help 2>&1 | grep -q -- '--compressed'; then
+    curl_opts="--compressed"
+else
+    curl_opts=""
 fi
 
 ##########################################################################################
@@ -396,8 +418,8 @@ fi
 response=`curl -X POST \
     -H "Content-Type: application/json" \
     --connect-timeout 7 --max-time 15 \
-    -d "$request" \
-    ${api}`
+    -d "$request_gzip" \
+    ${api} ${curl_opts}`
 exitcode=$?
 [[ ${tag_debug} == 1 ]] && echo "状态码: ${exitcode} 返回值: $response"
 
@@ -420,8 +442,8 @@ if [[ $exitcode -ne 0 ]]; then
     response=`curl -X POST \
         -H "Content-Type: application/json" \
         --connect-timeout 7 --max-time 15 \
-        -d "$request" \
-        ${api}`
+        -d "$request_gzip" \
+        ${api} ${curl_opts}`
     exitcode=$?
     [[ ${tag_debug} == 1 ]] && echo "状态码: ${exitcode} 返回值: $response"
 fi
