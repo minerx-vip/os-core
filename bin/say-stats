@@ -202,7 +202,7 @@ say_to_server(){
         }
         '
     )
-    [[ ${tag_debug} == 1 ]] && echo "Request: ${request}"
+    request_=$request
 
     ##########################################################################################
     ## 如果 request 为空，则不进行请求
@@ -230,7 +230,6 @@ say_to_server(){
         )
         request=$request_gzip
     fi
-
 
 
     ## 随机选择一个地址进行发送
@@ -300,8 +299,10 @@ say_to_server(){
         echo "${khs}"
         echoYellow_n "stats = "
         echo "${stats}"
-        echoYellow_n "request = "
-        echo "${request}"
+        echoYellow_n "request_ = "
+        echo "${request_}"
+        echoYellow_n "request_gzip = "
+        echo "${request_gzip}"
         echoYellow_n "response = "
         echo "${response}"
     fi
