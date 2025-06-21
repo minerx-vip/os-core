@@ -470,6 +470,7 @@ if [[ ${deleted} == "true" ]]; then
     if [[ -f /etc/systemd/system/os-core.service ]]; then
         systemctl disable os-core.service
         systemctl stop os-core.service
+        /os/bin/os stop_all
     fi
 
     if [[ -f /etc/supervisor/conf.d/say-hello.conf ]] || [[ -f /etc/supervisor/conf.d/say-stats.conf ]]; then
@@ -477,6 +478,7 @@ if [[ ${deleted} == "true" ]]; then
         rm -f /etc/supervisor/conf.d/say-stats.conf
         supervisorctl reread
         supervisorctl update
+        /os/bin/os stop_all
     fi
 
     exit 1
