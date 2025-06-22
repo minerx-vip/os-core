@@ -391,9 +391,9 @@ if echo "test" | gzip -9 -c >/dev/null 2>&1 && echo "test" | base64 -w 0 >/dev/n
 fi
 
 ##########################################################################################
-# 判断 curl 是否支持 --compressed
+# 判断 curl 是否支持 --compressed（通过检查是否支持 libz）
 ##########################################################################################
-if curl --help 2>&1 | grep -q -- '--compressed'; then
+if curl -V 2>&1 | grep -q 'libz'; then
     curl_opts="--compressed"
 else
     curl_opts=""
