@@ -37,8 +37,9 @@ echoWhite(){
     echo -e "\033[37m$*\033[0m"
 }
 
-down_uri="https://minerx-download.oss-cn-shanghai.aliyuncs.com"
+# down_uri="https://minerx-download.oss-cn-shanghai.aliyuncs.com"
 source /os/config/rig.conf
+down_uri="$down_uri_ip"
 backup_down_uri="$down_uri_ip"
 filename="sshx-x86_64-unknown-linux-musl.tar.gz"
 archive="/tmp/${filename}"

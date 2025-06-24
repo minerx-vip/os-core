@@ -9,8 +9,9 @@ echoCyan(){
 }
 
 
-down_uri="https://minerx-download.oss-cn-shanghai.aliyuncs.com"
+# down_uri="https://minerx-download.oss-cn-shanghai.aliyuncs.com"
 source /os/config/rig.conf
+down_uri="$down_uri_ip"
 backup_down_uri="$down_uri_ip"
 
 ## 兼容 snap

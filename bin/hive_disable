@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+
+
+###########################################################################
+## 停止 hive 服务
+###########################################################################
+stop_hive(){
+
+    ## 取消 crontab
+    crontab -l | sed 's|^\(\s*\)\(\*/10.*agent-screen\)|# \1\2|' | crontab -
+
+    ## 停止服务
+    SERVICE_NAME="hive"
+    systemctl stop hive.service
+    systemctl disable hive.service
+    sleep 1
+
+    ## 停止相应程序
+    targets=("agent" "autofan")
+    screen -ls | grep Detached | while read -r line; do
+        # 提取 screen ID 和名称
+        screen_id=$(echo "$line" | awk -F '.' '{print $1}' | tr -d '\t ')
+        screen_name=$(echo "$line" | awk -F '.' '{print $2}' | awk '{print $1}')
+
+        for target in "${targets[@]}"; do
+            if [[ "$screen_name" == "$target" ]]; then
+                echo "发现并终止 screen：$screen_name (ID: $screen_id)"
+                screen -S "$screen_id" -X quit
+            fi
+        done
+    done
+
+    ## 检查状态
+    existing_screens=$(screen -ls | grep Detached | awk -F '.' '{print $2}' | awk '{print $1}')
+    all_gone=true
+
+    for target in "${targets[@]}"; do
+        if echo "$existing_screens" | grep -q "^${target}$"; then
+            echo "❌ screen 会话仍存在：$target"
+            all_gone=false
+        else
+            echo "✅ screen 会话已消失：$target"
+        fi
+    done
+
+    if $all_gone; then
+        echo "✅ 所有目标 screen 会话均已退出"
+        exit 0
+    else
+        echo "⚠️ 仍有部分目标 screen 会话存在"
+        exit 1
+    fi
+}
+
+###########################################################################
+## 入口
+###########################################################################
+stop_hive
