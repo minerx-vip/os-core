@@ -88,12 +88,11 @@ gpu_count_intel=`/os/bin/gpu-count INTEL`
 ##########################################################################################
 ## 系统重启后延迟启动
 ##########################################################################################
-## 设置启动后等待时间（秒）
-## 根据GPU数量设置不同的等待时间：有GPU则等待120秒，无GPU则等待10秒
+## 根据GPU数量设置不同的等待时间：有GPU则等待30秒，无GPU则等待5秒
 if [ $gpu_count_amd -gt 0 ] || [ $gpu_count_nvidia -gt 0 ]; then
-    BOOT_WAIT_TIME_SECONDS=120
+    BOOT_WAIT_TIME_SECONDS=30
 else
-    BOOT_WAIT_TIME_SECONDS=10
+    BOOT_WAIT_TIME_SECONDS=5
 fi
 
 ## 启动时间

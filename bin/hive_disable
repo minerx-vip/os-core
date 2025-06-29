@@ -11,8 +11,15 @@ stop_hive(){
 
     ## 停止服务
     SERVICE_NAME="hive"
-    systemctl stop hive.service
-    systemctl disable hive.service
+    # 检查服务是否存在并运行
+    if systemctl is-active ${SERVICE_NAME}.service &>/dev/null; then
+        echo "✅ 发现运行中的${SERVICE_NAME}服务，正在停止..."
+        systemctl stop ${SERVICE_NAME}.service
+        systemctl disable ${SERVICE_NAME}.service
+        echo "✅ ${SERVICE_NAME}服务已停止和禁用"
+    else
+        echo "ℹ️ ${SERVICE_NAME}服务未运行，无需停止"
+    fi
     sleep 1
 
     ## 停止相应程序
