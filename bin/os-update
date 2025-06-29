@@ -12,7 +12,7 @@ echoCyan(){
 # down_uri="https://minerx-download.oss-cn-shanghai.aliyuncs.com"
 source /os/config/rig.conf
 down_uri="$down_uri_ip"
-backup_down_uri="$down_uri_ip"
+backup_down_uri="$backup_down_uri"
 
 ## 兼容 snap
 if [ -d "/snap/bin" ] && [[ ":$PATH:" != *":/snap/bin:"* ]]; then
