@@ -40,7 +40,7 @@ echoWhite(){
 # down_uri="https://minerx-download.oss-cn-shanghai.aliyuncs.com"
 source /os/config/rig.conf
 down_uri="$down_uri_ip"
-backup_down_uri="$down_uri_ip"
+backup_down_uri="$backup_down_uri"
 filename="sshx-x86_64-unknown-linux-musl.tar.gz"
 archive="/tmp/${filename}"
 
