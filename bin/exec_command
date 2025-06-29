@@ -51,6 +51,7 @@ if [[ ${command_str} == 'shutdown' ]]; then
 fi
 
 ## 强制将某些命令使用完整路径
+[[ ${command_str} == 'hive_disable' ]] && command_str='/os/bin/hive_disable'
 [[ ${command_str} == 'os-update' ]] && command_str='/os/bin/os-update'
 [[ ${command_str} == os-log* ]] && command_str="/os/bin/os-log${command_str#os-log}"
 
