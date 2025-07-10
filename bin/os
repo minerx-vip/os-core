@@ -77,7 +77,8 @@ start() {
     if [[ $session_count -gt 1 ]]; then
         echo "------------------------------------- screen count > 1, Killing screen: ${session_name}"
         # for sid in $(screen -ls | awk -v name="${session_name}" '$0 ~ name {print $1}'); do
-        for sid in $(screen -ls | awk -v name="${session_name}" '$0 ~ "\\."name"(\\s|$)" {print $1}'); do
+        # for sid in $(screen -ls | awk -v name="${session_name}" '$0 ~ "\\."name"(\\s|$)" {print $1}'); do
+        for sid in $(screen -ls | awk -v name="$session_name" '$1 ~ ("^[0-9]+\\." name "$") {print $1}'); do
             echoYellow "------------------------------------- screen count > 1, Killing screen: ${sid}"
             screen -S "${sid}" -X quit
         done
