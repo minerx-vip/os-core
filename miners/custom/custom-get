@@ -109,6 +109,12 @@ sed -i 's/\/hive\/miners/\/os\/miners/g' $MINER_DIR/$miner/h-manifest.conf
 sed -i 's/\/hive\/miners/\/os\/miners/g' $MINER_DIR/$miner/h-config.sh
 sed -i 's/\/hive\/miners/\/os\/miners/g' $MINER_DIR/$miner/h-run.sh
 sed -i 's/\/hive\/miners/\/os\/miners/g' $MINER_DIR/$miner/h-stats.sh
+## 兼容 apool 自动更新
+sed -i 's/\/hive\/miners/\/os\/miners/g' $MINER_DIR/$miner/check_update.sh
+
+
 sed -i "s|/hive-config/wallet.conf|${os_wallet_conf}|" "$MINER_DIR/$miner/h-run.sh"
+
+## Add 666666
 
 echo "$url" > $URLFILE
