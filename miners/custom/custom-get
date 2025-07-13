@@ -110,8 +110,10 @@ sed -i 's/\/hive\/miners/\/os\/miners/g' $MINER_DIR/$miner/h-config.sh
 sed -i 's/\/hive\/miners/\/os\/miners/g' $MINER_DIR/$miner/h-run.sh
 sed -i 's/\/hive\/miners/\/os\/miners/g' $MINER_DIR/$miner/h-stats.sh
 ## 兼容 apool 自动更新
-sed -i 's/\/hive\/miners/\/os\/miners/g' $MINER_DIR/$miner/check_update.sh
-
+if [[ -f $MINER_DIR/$miner/check_update.sh ]]; then
+    sed -i 's/\/hive\/miners/\/os\/miners/g' $MINER_DIR/$miner/check_update.sh
+    sed -i '/\/hive\/bin\/miner start/d' $MINER_DIR/$miner/check_update.sh
+fi
 
 sed -i "s|/hive-config/wallet.conf|${os_wallet_conf}|" "$MINER_DIR/$miner/h-run.sh"
 
