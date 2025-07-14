@@ -167,6 +167,24 @@ else
     cpu_id=`dmidecode -t 4 | grep ID | sed 's/.*ID://;s/ //g' 2>/dev/null || echo "unknown-cpu-id"`
 fi
 
+## CPU 功耗
+CPU_WATTS_JSON='[]'
+
+if command -v ipmitool &>/dev/null; then
+  RAW_OUTPUT=$(timeout 10 ipmitool sensor 2>/dev/null | grep -v Terminated)
+  FILTERED=$(echo "$RAW_OUTPUT" | grep CPU_WATTS)
+
+  CPU_WATTS_JSON=$(echo "$FILTERED" | awk '
+  BEGIN { printf "[" }
+  {
+    if ($3 ~ /^[0-9]+(\.[0-9]+)?$/) {
+      printf "%s%s", sep, $3
+      sep=", "
+    }
+  }
+  END { print "]" }
+  ')
+fi
 
 # ## 磁盘信息 - 性能问题，暂时屏蔽
 # if [[ ! -f /hive-config/.DISKLESS_AMD ]]; then
@@ -344,6 +362,7 @@ request=$(
     --arg swap_used "$swap_used" \
     --arg swap_free "$swap_free" \
     --arg register "$register" \
+    --arg cpu_watts_json "$CPU_WATTS_JSON" \
     '{
         "method": "hello", "jsonrpc": "2.0", "id": 0,
         "params": {
@@ -356,7 +375,8 @@ request=$(
             "distro_ver": $distro_ver, "kernel": $kernel, "hive_version": $hive_version, "nvidia_version": $nvidia_version, "os_version": $os_version,
             "cpu_usage": $cpu_usage, "load_avg": $load_avg, "timezone": $timezone, "cpu_temp": $cpu_temp,
             "mem_total": $mem_total, "mem_used": $mem_used, "mem_available": $mem_available, 
-            "swap_total": $swap_total, "swap_used": $swap_used, "swap_free": $swap_free, "register": $register
+            "swap_total": $swap_total, "swap_used": $swap_used, "swap_free": $swap_free, "register": $register,
+            "cpu_watts_json": $cpu_watts_json
         }
     }'
 )
