@@ -362,7 +362,7 @@ request=$(
     --arg swap_used "$swap_used" \
     --arg swap_free "$swap_free" \
     --arg register "$register" \
-    --arg cpu_watts_json "$CPU_WATTS_JSON" \
+    --argjson cpu_watts_json "$CPU_WATTS_JSON" \
     '{
         "method": "hello", "jsonrpc": "2.0", "id": 0,
         "params": {
