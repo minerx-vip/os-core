@@ -8,7 +8,7 @@ rm -f ${log_file}
 
 
 ##################################################################
-## Start Remote Shell
+## Start Remote Shell - sshx
 ##################################################################
 if [[ ${command_str} == 'sshx' ]]; then
     ## Exit the existing sshx
@@ -31,6 +31,34 @@ if [[ ${command_str} == 'sshx' ]]; then
         fi
 
         echo "Waiting for sshx to start successfully ${count}"
+        sleep 1
+    done
+fi
+
+##################################################################
+## Start Remote Shell - minerX SSH Proxy
+##################################################################
+if [[ ${command_str} == 'ttyd_proxy' ]]; then
+    ## Exit the existing sshx
+    if screen -list | grep -q "\.ttyd_proxy"; then
+        echo "Found screen session 'ttyd_proxy'. Exiting it..."
+        screen -S ttyd_proxy -X quit
+    fi
+
+    ## Start sshx
+    screen -dmL -Logfile ${log_file} -S ttyd_proxy /os/bin/ttyd_proxy
+
+    ## Sending message to server
+    count=0
+    while (( count < 30 )); do
+        (( count++ ))
+
+        if [[ -f ${log_file} ]] && grep -q "Link:" "${log_file}"; then
+            /os/bin/say-message ok --file=${log_file} --id=${command_id}
+            exit
+        fi
+
+        echo "Waiting for ttyd_proxy to start successfully ${count}"
         sleep 1
     done
 fi
