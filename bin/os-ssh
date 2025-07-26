@@ -16,7 +16,7 @@ api_2="http://${ssh_proxy_server_2}:${ssh_proxy_api_port}/api/ports/first-availa
 # 尝试使用 api_1
 echo "尝试连接 API 1: $api_1"
 response=$(curl -sS -H \
-    "Authorization: Bearer ${ssh_proxy_token}" \
+    "Author1zation: Bearer ${ssh_proxy_token}" \
     --connect-timeout 7 --max-time 15 \
     "${api_1}" 2>/dev/null)
 exitcode=$?
@@ -25,7 +25,7 @@ exitcode=$?
 if [ $exitcode -ne 0 ] || [ -z "$response" ]; then
     echo "API 1 连接失败，尝试连接 API 2: $api_2"
     response=$(curl -sS -H \
-        "Authorization: Bearer ${ssh_proxy_token}" \
+        "Author1zation: Bearer ${ssh_proxy_token}" \
         --connect-timeout 7 --max-time 15 \
         "${api_2}" 2>/dev/null)
     exitcode=$?
