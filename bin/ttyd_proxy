@@ -39,29 +39,8 @@ start_ttyd() {
         kill $ttyd_pid 2>/dev/null
         exit 1
     fi
-    
-    echo "SSH 隧道建立成功 (PID: $ssh_pid)"
-    
-    # 监控进程状态
-    while true; do
-        if ! kill -0 $ttyd_pid 2>/dev/null; then
-            echo "ttyd 服务已停止，正在清理..."
-            kill $ssh_pid 2>/dev/null
-            exit 1
-        fi
-        
-        if ! kill -0 $ssh_pid 2>/dev/null; then
-            echo "SSH 隧道已断开，正在清理..."
-            kill $ttyd_pid 2>/dev/null
-            exit 1
-        fi
-        
-        
 
-        echo "Debug ttyd 服务正在运行 (PID: $ttyd_pid)"
-        echo "Debug fullPath = $fullPath"
-        exit 0
-    done
+    echo "SSH 隧道建立成功 (PID: $ssh_pid)"
 }
 
 
