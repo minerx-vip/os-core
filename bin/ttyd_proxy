@@ -4,41 +4,60 @@
 start_ttyd() {
     ## 运行 ttyd 服务
     echo "启动 ttyd 服务..."
-    if $shell_ttyd > /dev/null 2>&1 & then
-        ttyd_pid=$!
-        echo "ttyd 服务已启动 (PID: $ttyd_pid)"
-        
-        # 等待 ttyd 服务启动
-        sleep 2
-        
-        # 检查 ttyd 是否仍在运行
-        if ! ps -p $ttyd_pid > /dev/null; then
-            echo "错误: ttyd 服务启动失败"
-            # 在这里执行命令b
-            # command_b
-            exit 1
-        fi
-        
-        echo "正在建立 SSH 隧道..."
-        if $shell_ssh; then
-            echo "SSH 隧道建立成功"
-            # 在这里执行命令a
-            # command_a
-        else
-            ssh_exit_status=$?
-            echo "SSH 隧道建立失败，退出状态: $ssh_exit_status"
-            # 停止 ttyd 服务
-            kill $ttyd_pid 2>/dev/null
-            # 在这里执行命令b
-            # command_b
-            exit 1
-        fi
-    else
+    
+    # 启动 ttyd
+    $shell_ttyd > /dev/null 2>&1 &
+    ttyd_pid=$!
+    
+    if [ -z "$ttyd_pid" ] || ! kill -0 $ttyd_pid 2>/dev/null; then
         echo "错误: 无法启动 ttyd 服务"
-        # 在这里执行命令b
-        # command_b
         exit 1
     fi
+    
+    echo "ttyd 服务已启动 (PID: $ttyd_pid)"
+    
+    # 等待 ttyd 服务启动
+    sleep 2
+    
+    # 检查 ttyd 是否仍在运行
+    if ! kill -0 $ttyd_pid 2>/dev/null; then
+        echo "错误: ttyd 服务启动后意外退出"
+        exit 1
+    fi
+    
+    # 启动 SSH 隧道（在后台运行）
+    echo "正在建立 SSH 隧道..."
+    $shell_ssh -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 &
+    ssh_pid=$!
+    
+    # 等待 SSH 隧道建立
+    sleep 2
+    
+    # 检查 SSH 隧道是否建立成功
+    if ! kill -0 $ssh_pid 2>/dev/null; then
+        echo "错误: SSH 隧道建立失败"
+        kill $ttyd_pid 2>/dev/null
+        exit 1
+    fi
+    
+    echo "SSH 隧道建立成功 (PID: $ssh_pid)"
+    
+    # 监控进程状态
+    while true; do
+        if ! kill -0 $ttyd_pid 2>/dev/null; then
+            echo "ttyd 服务已停止，正在清理..."
+            kill $ssh_pid 2>/dev/null
+            exit 1
+        fi
+        
+        if ! kill -0 $ssh_pid 2>/dev/null; then
+            echo "SSH 隧道已断开，正在清理..."
+            kill $ttyd_pid 2>/dev/null
+            exit 1
+        fi
+        
+        sleep 5
+    done
 }
 
 
