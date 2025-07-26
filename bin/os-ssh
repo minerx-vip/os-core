@@ -1,0 +1,60 @@
+#!/bin/bash
+
+## 加载配置文件
+source /os/config/rig.conf
+
+## 输出调试信息
+echo "Debug ssh_proxy_server_1 = $ssh_proxy_server_1"
+echo "Debug ssh_proxy_server_2 = $ssh_proxy_server_2"
+echo "Debug ssh_proxy_api_port = $ssh_proxy_api_port"
+echo "Debug ssh_proxy_token = $ssh_proxy_token"
+
+## 拼接请求参数
+api_1="http://${ssh_proxy_server_1}:${ssh_proxy_api_port}/api/ports/first-available"
+api_2="http://${ssh_proxy_server_2}:${ssh_proxy_api_port}/api/ports/first-available"
+
+# 尝试使用 api_1
+echo "尝试连接 API 1: $api_1"
+response=$(curl -sS -H \
+    "Authorization: Bearer ${ssh_proxy_token}" \
+    --connect-timeout 7 --max-time 15 \
+    "${api_1}" 2>/dev/null)
+exitcode=$?
+
+# 如果 api_1 失败，尝试使用 api_2
+if [ $exitcode -ne 0 ] || [ -z "$response" ]; then
+    echo "API 1 连接失败，尝试连接 API 2: $api_2"
+    response=$(curl -sS -H \
+        "Authorization: Bearer ${ssh_proxy_token}" \
+        --connect-timeout 7 --max-time 15 \
+        "${api_2}" 2>/dev/null)
+    exitcode=$?
+    
+    # 如果 api_2 也失败，则退出
+    if [ $exitcode -ne 0 ] || [ -z "$response" ]; then
+        echo "错误: 无法连接到任何 API 服务器"
+        exit 1
+    fi
+fi
+
+echo "Debug 命令结果: ${exitcode}"
+echo "Debug 原始数据: $response"
+
+## 获取远程服务器信息
+remotePort=$(echo $response | jq '.remotePort' --raw-output)
+echo "Debug remotePort = $remotePort"
+if [[ ${remotePort} -eq 0 ]] || [[ ${remotePort} == "0" ]]; then
+    echo "失败"
+else
+    remoteHost=$(echo $response | jq '.remoteHost' --raw-output)
+    remoteSshPort=$(echo $response | jq '.remoteSshPort' --raw-output)
+    fullPath=$(echo $response | jq '.fullPath' --raw-output)
+    echo "Debug remoteHost = $remoteHost"
+    echo "Debug remoteSshPort = $remoteSshPort"
+    echo "Debug fullPath = $fullPath"
+
+    ## 运行反向代理
+    shell="ssh -i id_rsa -N -R ${remotePort}:127.0.0.1:4201 root@${remoteHost} -p ${remoteSshPort}"
+    echo "Debug shell = $shell"
+    $shell
+fi
