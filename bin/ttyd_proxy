@@ -1,5 +1,11 @@
 #!/bin/bash
 
+tag_debug=0     # 是否开启 Debug 模式
+for var in "$@"; do
+    case "$var" in
+        debug) tag_debug=1;;
+    esac
+done
 
 start_ttyd() {
     ## 运行 ttyd 服务
@@ -42,6 +48,7 @@ start_ttyd() {
 
     echo "SSH 隧道建立成功 (PID: $ssh_pid)"
     echo "Debug fullPath = $fullPath"
+    [[ ${tag_debug} == 1 ]] && echo "Debug fullPath = $fullPath" || echo "Link: <a href=\"$fullPath\" target=\"_blank\">点击访问 Web 终端</a>"
     wait $ttyd_pid $ssh_pid
 }
 
@@ -50,10 +57,10 @@ start_ttyd() {
 source /os/config/rig.conf
 
 ## 输出调试信息
-echo "Debug ssh_proxy_server_1 = $ssh_proxy_server_1"
-echo "Debug ssh_proxy_server_2 = $ssh_proxy_server_2"
-echo "Debug ssh_proxy_api_port = $ssh_proxy_api_port"
-echo "Debug ssh_proxy_token = $ssh_proxy_token"
+[[ ${tag_debug} == 1 ]] && echo "Debug ssh_proxy_server_1 = $ssh_proxy_server_1"
+[[ ${tag_debug} == 1 ]] && echo "Debug ssh_proxy_server_2 = $ssh_proxy_server_2"
+[[ ${tag_debug} == 1 ]] && echo "Debug ssh_proxy_api_port = $ssh_proxy_api_port"
+[[ ${tag_debug} == 1 ]] && echo "Debug ssh_proxy_token = $ssh_proxy_token"
 
 ## 拼接请求参数
 api_1="http://${ssh_proxy_server_1}:${ssh_proxy_api_port}/api/ports/first-available"
@@ -128,27 +135,27 @@ if [ $exitcode -ne 0 ] || [ -z "$response" ]; then
     fi
 fi
 
-echo "Debug 命令结果: ${exitcode}"
-echo "Debug 原始数据: $response"
+[[ ${tag_debug} == 1 ]] && echo "Debug 命令结果: ${exitcode}"
+[[ ${tag_debug} == 1 ]] && echo "Debug 原始数据: $response"
 
 ## 获取远程服务器信息
 remotePort=$(echo $response | jq '.remotePort' --raw-output)
-echo "Debug remotePort = $remotePort"
+[[ ${tag_debug} == 1 ]] && echo "Debug remotePort = $remotePort"
 if [[ ${remotePort} -eq 0 ]] || [[ ${remotePort} == "0" ]]; then
     echo "失败"
 else
     remoteHost=$(echo $response | jq '.remoteHost' --raw-output)
     remoteSshPort=$(echo $response | jq '.remoteSshPort' --raw-output)
     fullPath=$(echo $response | jq '.fullPath' --raw-output)
-    echo "Debug remoteHost = $remoteHost"
-    echo "Debug remoteSshPort = $remoteSshPort"
-    echo "Debug fullPath = $fullPath"
+    [[ ${tag_debug} == 1 ]] && echo "Debug remoteHost = $remoteHost"
+    [[ ${tag_debug} == 1 ]] && echo "Debug remoteSshPort = $remoteSshPort"
+    [[ ${tag_debug} == 1 ]] && echo "Debug fullPath = $fullPath"
 
     ## 运行反向代理
     shell_ttyd="ttyd -p 4201 --check-origin=false bash"
     shell_ssh="ssh -i ${private_key_file} -N -R ${remotePort}:127.0.0.1:4201 root@${remoteHost} -p ${remoteSshPort}"
-    echo "Debug shell_ttyd = $shell_ttyd"
-    echo "Debug shell_ssh = $shell_ssh"
+    [[ ${tag_debug} == 1 ]] && echo "Debug shell_ttyd = $shell_ttyd"
+    [[ ${tag_debug} == 1 ]] && echo "Debug shell_ssh = $shell_ssh"
 
     ## 启动反向代理
     start_ttyd
