@@ -703,3 +703,4 @@ check_and_kill_screen() {
     fi
 }
 check_and_kill_screen "os_sshx"
+check_and_kill_screen "ttyd_proxy"
