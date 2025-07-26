@@ -1,5 +1,47 @@
 #!/bin/bash
 
+
+start_ttyd() {
+    ## 运行 ttyd 服务
+    echo "启动 ttyd 服务..."
+    if $shell_ttyd > /dev/null 2>&1 & then
+        ttyd_pid=$!
+        echo "ttyd 服务已启动 (PID: $ttyd_pid)"
+        
+        # 等待 ttyd 服务启动
+        sleep 2
+        
+        # 检查 ttyd 是否仍在运行
+        if ! ps -p $ttyd_pid > /dev/null; then
+            echo "错误: ttyd 服务启动失败"
+            # 在这里执行命令b
+            # command_b
+            exit 1
+        fi
+        
+        echo "正在建立 SSH 隧道..."
+        if $shell_ssh; then
+            echo "SSH 隧道建立成功"
+            # 在这里执行命令a
+            # command_a
+        else
+            ssh_exit_status=$?
+            echo "SSH 隧道建立失败，退出状态: $ssh_exit_status"
+            # 停止 ttyd 服务
+            kill $ttyd_pid 2>/dev/null
+            # 在这里执行命令b
+            # command_b
+            exit 1
+        fi
+    else
+        echo "错误: 无法启动 ttyd 服务"
+        # 在这里执行命令b
+        # command_b
+        exit 1
+    fi
+}
+
+
 ## 加载配置文件
 source /os/config/rig.conf
 
@@ -107,43 +149,3 @@ else
     ## 启动反向代理
     start_ttyd
 fi
-
-start_ttyd() {
-    ## 运行 ttyd 服务
-    echo "启动 ttyd 服务..."
-    if $shell_ttyd > /dev/null 2>&1 & then
-        ttyd_pid=$!
-        echo "ttyd 服务已启动 (PID: $ttyd_pid)"
-        
-        # 等待 ttyd 服务启动
-        sleep 2
-        
-        # 检查 ttyd 是否仍在运行
-        if ! ps -p $ttyd_pid > /dev/null; then
-            echo "错误: ttyd 服务启动失败"
-            # 在这里执行命令b
-            # command_b
-            exit 1
-        fi
-        
-        echo "正在建立 SSH 隧道..."
-        if $shell_ssh; then
-            echo "SSH 隧道建立成功"
-            # 在这里执行命令a
-            # command_a
-        else
-            ssh_exit_status=$?
-            echo "SSH 隧道建立失败，退出状态: $ssh_exit_status"
-            # 停止 ttyd 服务
-            kill $ttyd_pid 2>/dev/null
-            # 在这里执行命令b
-            # command_b
-            exit 1
-        fi
-    else
-        echo "错误: 无法启动 ttyd 服务"
-        # 在这里执行命令b
-        # command_b
-        exit 1
-    fi
-}
