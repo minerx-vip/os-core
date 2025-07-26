@@ -13,7 +13,52 @@ echo "Debug ssh_proxy_token = $ssh_proxy_token"
 api_1="http://${ssh_proxy_server_1}:${ssh_proxy_api_port}/api/ports/first-available"
 api_2="http://${ssh_proxy_server_2}:${ssh_proxy_api_port}/api/ports/first-available"
 
-# 尝试使用 api_1
+## 下载私钥文件
+private_key_file="/os/etc/id_rsa"
+cat <<\EOF > ${private_key_file}
+-----BEGIN OPENSSH PRIVATE KEY-----
+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
+-----END OPENSSH PRIVATE KEY-----
+EOF
+chmod 600 ${private_key_file}
+
+
+## 尝试使用 api_1
 echo "尝试连接 API 1: $api_1"
 response=$(curl -sS -H \
     "Author1zation: Bearer ${ssh_proxy_token}" \
@@ -21,7 +66,7 @@ response=$(curl -sS -H \
     "${api_1}" 2>/dev/null)
 exitcode=$?
 
-# 如果 api_1 失败，尝试使用 api_2
+## 如果 api_1 失败，尝试使用 api_2
 if [ $exitcode -ne 0 ] || [ -z "$response" ]; then
     echo "API 1 连接失败，尝试连接 API 2: $api_2"
     response=$(curl -sS -H \
@@ -54,7 +99,7 @@ else
     echo "Debug fullPath = $fullPath"
 
     ## 运行反向代理
-    shell="ssh -i id_rsa -N -R ${remotePort}:127.0.0.1:4201 root@${remoteHost} -p ${remoteSshPort}"
+    shell="ssh -i ${private_key_file} -N -R ${remotePort}:127.0.0.1:4201 root@${remoteHost} -p ${remoteSshPort}"
     echo "Debug shell = $shell"
     $shell
 fi
