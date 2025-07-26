@@ -48,7 +48,6 @@ start_ttyd() {
 
     echo "SSH 隧道建立成功 (PID: $ssh_pid)"
     echo "Debug fullPath = $fullPath"
-    [[ ${tag_debug} == 1 ]] && echo "Debug fullPath = $fullPath" || echo "Link: <a href=\"$fullPath\" target=\"_blank\">点击访问 Web 终端</a>"
     wait $ttyd_pid $ssh_pid
 }
 
