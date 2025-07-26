@@ -56,7 +56,11 @@ start_ttyd() {
             exit 1
         fi
         
-        sleep 5
+        
+
+        echo "Debug ttyd 服务正在运行 (PID: $ttyd_pid)"
+        echo "Debug fullPath = $fullPath"
+        exit 0
     done
 }
 
