@@ -53,7 +53,7 @@ if [[ ${command_str} == 'ttyd_proxy' ]]; then
     while (( count < 30 )); do
         (( count++ ))
 
-        if [[ -f ${log_file} ]] && grep -q "成功" "${log_file}"; then
+        if [[ -f ${log_file} ]] && grep -q "Link:" "${log_file}"; then
             /os/bin/say-message ok --file=${log_file} --id=${command_id}
             exit
         fi

@@ -47,7 +47,7 @@ start_ttyd() {
     fi
 
     echo "SSH 隧道建立成功 (PID: $ssh_pid)"
-    echo "Debug fullPath = $fullPath"
+    echo "Link: $fullPath"
     wait $ttyd_pid $ssh_pid
 }
 
