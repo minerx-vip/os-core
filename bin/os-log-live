@@ -87,8 +87,8 @@ fi
 # echo "Debug log_live_server_2 = $log_live_server_2"
 # echo "Debug uuid = $uuid"
 
-shell_1="timeout 600 tail -F $log_file | websocat -H \"Authorization: Bearer ${log_live_token}\" -H \"Type: send_logs\" ws://$log_live_server_1/${uuid}"
-shell_2="timeout 600 tail -F $log_file | websocat -H \"Authorization: Bearer ${log_live_token}\" -H \"Type: send_logs\" ws://$log_live_server_2/${uuid}"
+shell_1="timeout 600 tail -n 200 -F $log_file | websocat -H \"Authorization: Bearer ${log_live_token}\" -H \"Type: send_logs\" ws://$log_live_server_1/${uuid}"
+shell_2="timeout 600 tail -n 200 -F $log_file | websocat -H \"Authorization: Bearer ${log_live_token}\" -H \"Type: send_logs\" ws://$log_live_server_2/${uuid}"
 # echo "Debug shell_1 = $shell_1"
 # echo "Debug shell_2 = $shell_2"
 
