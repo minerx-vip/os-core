@@ -1,0 +1,115 @@
+#!/bin/bash
+set -o errexit
+set -o nounset
+echoYellow(){
+    echo -e "\033[33m$*\033[0m"
+}
+echoCyan(){
+    echo -e "\033[36m$*\033[0m"
+}
+
+wallet=$1
+log_file="/var/log/os/os_miner_${wallet}.log"
+
+## 检查日志文件是否存在
+if [[ ! -f $log_file ]]; then
+    echoYellow "Log file not found: $log_file"
+    exit 1
+fi
+
+##################################################################
+## 生成 UUID
+##################################################################
+if command -v uuidgen >/dev/null 2>&1; then
+    uuid=$(uuidgen | tr -d '-')
+elif command -v openssl >/dev/null 2>&1; then
+    uuid=$(openssl rand -hex 16)
+elif command -v python3 >/dev/null 2>&1; then
+    uuid=$(python3 -c 'import uuid; print(uuid.uuid4().hex)')
+elif command -v python >/dev/null 2>&1; then
+    uuid=$(python -c 'import uuid; print(uuid.uuid4().hex)')
+else
+    uuid=$(date +%s%3N)
+fi
+uuid=${uuid//./}
+uuid=${uuid//-/}
+
+##################################################################
+## 检查 websocat 是否存在
+##################################################################
+source /os/config/rig.conf
+down_uri="$down_uri_ip"
+backup_down_uri="$backup_down_uri"
+
+## 兼容 snap
+if [ -d "/snap/bin" ] && [[ ":$PATH:" != *":/snap/bin:"* ]]; then
+    export PATH="$PATH:/snap/bin"
+fi
+
+download_file() {
+    local uri=$1
+    local filename
+    local url
+    local archive
+
+    filename="websocat.tar.gz"
+    url="${uri}/${filename}"
+    archive="/tmp/${filename}"
+
+    rm -f "${archive}"
+
+    if wget -t 5 -T 20 -c "${url}" -P /tmp/; then
+        echoCyan "下载成功: ${filename}"
+        tar xzf ${archive} -C /usr/local/bin || { echoYellow "Install failed!"; exit 1; }
+        return 0
+    else
+        echoYellow "下载失败: ${filename}"
+        return 1
+    fi
+}
+
+## 检查 websocat 是否存在
+if ! command -v websocat >/dev/null 2>&1; then
+    if ! download_file "${down_uri}"; then
+        echoYellow "主下载 URI 失败，尝试备用 URI..."
+
+        if ! download_file "${backup_down_uri}"; then
+            echoYellow "备用下载 URI 也失败了！"
+            exit 1
+        fi
+    fi
+fi
+
+##################################################################
+## 发送日志
+##################################################################
+# echo "Debug log_live_server_1 = $log_live_server_1"
+# echo "Debug log_live_server_2 = $log_live_server_2"
+# echo "Debug uuid = $uuid"
+
+shell_1="timeout 600 tail -F $log_file | websocat -H \"Authorization: Bearer ${log_live_token}\" -H \"Type: send_logs\" ws://$log_live_server_1/${uuid}"
+shell_2="timeout 600 tail -F $log_file | websocat -H \"Authorization: Bearer ${log_live_token}\" -H \"Type: send_logs\" ws://$log_live_server_2/${uuid}"
+# echo "Debug shell_1 = $shell_1"
+# echo "Debug shell_2 = $shell_2"
+
+# 启动第一个 websocat 进程
+eval $shell_1 &
+pid1=$!
+sleep 3
+if ps -p $pid1 >/dev/null 2>&1; then
+    echoCyan "启动成功 (PID: $pid1), 使用以下链接查看日志："
+    echo
+    echoCyan "Link: http://$log_live_server_1/${uuid}"
+else
+    # 服务器连接失败，重试
+    eval $shell_2 &
+    pid2=$!
+    sleep 3
+    if ps -p $pid2 >/dev/null 2>&1; then
+        echoCyan "启动成功 (PID: $pid2), 使用以下链接查看日志："
+        echo
+        echoCyan "Link: http://$log_live_server_2/${uuid}"
+    else
+        echoYellow "启动失败, 请重试"
+    fi
+fi
