@@ -89,17 +89,17 @@ fi
 
 ## 是否开启压缩传输
 if command -v gzip >/dev/null 2>&1; then
-    shell_1="timeout 600 tail -n 200 -F $log_file | gzip -c | websocat -H \"Authorization: Bearer ${log_live_token}\" -H \"Type: send_logs\" -H \"Content-Encoding: gzip\" ws://$log_live_server_1/${uuid}"
-    shell_2="timeout 600 tail -n 200 -F $log_file | gzip -c | websocat -H \"Authorization: Bearer ${log_live_token}\" -H \"Type: send_logs\" -H \"Content-Encoding: gzip\" ws://$log_live_server_2/${uuid}"
+    shell_1="timeout 600 tail -n 200 -F $log_file | gzip -c | websocat -b -H \"Authorization: Bearer ${log_live_token}\" -H \"Type: send_logs\" -H \"Content-Encoding: gzip\" ws://$log_live_server_1/${uuid}"
+    shell_2="timeout 600 tail -n 200 -F $log_file | gzip -c | websocat -b -H \"Authorization: Bearer ${log_live_token}\" -H \"Type: send_logs\" -H \"Content-Encoding: gzip\" ws://$log_live_server_2/${uuid}"
 else
-    shell_1="timeout 600 tail -n 200 -F $log_file | websocat -H \"Authorization: Bearer ${log_live_token}\" -H \"Type: send_logs\" ws://$log_live_server_1/${uuid}"
-    shell_2="timeout 600 tail -n 200 -F $log_file | websocat -H \"Authorization: Bearer ${log_live_token}\" -H \"Type: send_logs\" ws://$log_live_server_2/${uuid}"
+    shell_1="timeout 600 tail -n 200 -F $log_file | websocat -b -H \"Authorization: Bearer ${log_live_token}\" -H \"Type: send_logs\" ws://$log_live_server_1/${uuid}"
+    shell_2="timeout 600 tail -n 200 -F $log_file | websocat -b -H \"Authorization: Bearer ${log_live_token}\" -H \"Type: send_logs\" ws://$log_live_server_2/${uuid}"
 fi
-# echo "Debug shell_1 = $shell_1"
-# echo "Debug shell_2 = $shell_2"
+echo "Debug shell_1 = $shell_1"
+echo "Debug shell_2 = $shell_2"
 
 # 启动第一个 websocat 进程
-eval $shell_1 &
+eval "$shell_1" &
 pid1=$!
 sleep 3
 if ps -p $pid1 >/dev/null 2>&1; then
@@ -108,7 +108,7 @@ if ps -p $pid1 >/dev/null 2>&1; then
     echoCyan "Link: http://$log_live_server_1/${uuid}"
 else
     # 服务器连接失败，重试
-    eval $shell_2 &
+    eval "$shell_2" &
     pid2=$!
     sleep 3
     if ps -p $pid2 >/dev/null 2>&1; then
