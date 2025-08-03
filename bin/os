@@ -154,7 +154,8 @@ stop() {
     kill_hanged
 
     ## 查找所有 screen 窗口
-    screens=(`screen -ls ${session_name} | grep -Po "\K[0-9]+(?=\.${session_name}(?:\s|$))" | sort --unique`)
+    # screens=(`screen -ls ${session_name} | grep -Po "\K[0-9]+(?=\.${session_name}(?:\s|$))" | sort --unique`)
+    screens=($(screen -ls ${session_name} | awk -v name="${session_name}" '$0 ~ name { split($1, a, "."); print a[1] }'))
 
     echo "Debug: Stopping ${session_name}, screens: ${screens[@]}"
 
