@@ -1,0 +1,163 @@
+#!/usr/bin/env bash
+
+# Remote connections managment helper. Can be sourced to other scripts.
+
+SSHD_CONF=/etc/ssh/sshd_config
+SSHD_KEYS=/home/user/.ssh/authorized_keys
+
+
+x11vnc_start() {
+	[[ $VNC_ENABLE -eq 0 ]] && echo "VNC: service is disabled" && return 1
+	pidof x11vnc >/dev/null && return 0
+	if ! hivex status >/dev/null; then
+		echo "VNC: X server is not running"
+		return 2
+	fi
+	if ! hivex guienabled; then
+		echo "VNC: X server gui is disabled"
+		return 3
+	fi
+	if [[ ! -f $VNC_PASSWD ]]; then
+		echo "VNC: $VNC_PASSWD not found"
+		return 4
+	fi
+	cp $VNC_PASSWD /tmp/vnc-password.txt
+	dos2unix-safe /tmp/vnc-password.txt 2>/dev/null
+	nohup x11vnc -display :0 -rfbport 5900 -no6 -forever -shared -passwdfile /tmp/vnc-password.txt > /dev/null 2>&1 &
+	return 0
+}
+
+x11vnc_stop() {
+	pkill -9 x11vnc
+}
+
+x11vnc_restart() {
+	x11vnc_stop && sleep 1
+	x11vnc_start
+}
+
+x11vnc_status() {
+	if pidof x11vnc >/dev/null; then
+		echo "VNC is running"
+		return 0
+	fi
+	echo "VNC is not running"
+	return 1
+}
+
+
+shellinabox_start() {
+	systemctl start hive-ttyd
+}
+
+shellinabox_stop() {
+	systemctl stop shellinabox.service 2>/dev/null
+	systemctl stop hive-ttyd
+}
+
+shellinabox_status() {
+	systemctl status hive-ttyd 2>/dev/null || systemctl status shellinabox.service 2>/dev/null
+}
+
+
+ssh_start() {
+	touch $SSHD_CONF
+	sed -i '/ListenAddress/{s/.*/ListenAddress 0.0.0.0/;h};${x;/^$/{s//ListenAddress 0.0.0.0/;H};x}' $SSHD_CONF
+
+	#delete doubles
+	[[ `grep -c ListenAddress < $SSHD_CONF` -gt 1 ]] && sed -i '$!N; /^\(.*\)\n\1$/!P; D' $SSHD_CONF
+
+	systemctl restart ssh.service
+}
+
+ssh_stop() {
+	touch $SSHD_CONF
+	sed -i '/ListenAddress/{s/.*/ListenAddress 127.0.0.1/;h};${x;/^$/{s//ListenAddress 127.0.0.1/;H};x}' $SSHD_CONF
+
+	#delete doubles
+	[[ `grep -c ListenAddress < $SSHD_CONF` -gt 1 ]] && sed -i '$!N; /^\(.*\)\n\1$/!P; D' $SSHD_CONF
+
+	systemctl restart ssh.service
+}
+
+ssh_status() {
+	# if sshd enabled than it listen on all interfaces; disabled in this case means that sshd is active but listen on localhost only
+	systemctl status ssh.service > /dev/null 2>&1 && (netstat -tln | awk '{ print $4}' | tail -n +3 | grep -q "0.0.0.0:22")
+}
+
+ssh_restart() {
+	ssh_status > /dev/null && ssh_stop && sleep 1
+	ssh_start
+}
+
+ssh_set_keys() {
+	echo "$1" > $SSHD_KEYS
+	chown -R user:user $SSHD_KEYS
+}
+
+ssh_pass_enable() {
+	touch $SSHD_CONF
+	sed -i '/PasswordAuthentication/{s/.*/PasswordAuthentication yes/;h};${x;/^$/{s//PasswordAuthentication yes/;H};x}' $SSHD_CONF
+}
+
+ssh_pass_disable() {
+	touch $SSHD_CONF
+	sed -i '/PasswordAuthentication/{s/.*/PasswordAuthentication no/;h};${x;/^$/{s//PasswordAuthentication no/;H};x}' $SSHD_CONF
+}
+
+ssh_password_status() {
+	grep -q "^PasswordAuthentication no" $SSHD_CONF
+	if [[ $? -eq 0 ]]; then
+		echo "Password auth is disabled"
+		return 1
+	fi
+	echo "Password auth is enabled"
+	return 0
+}
+
+
+apply_conf() {
+	if [[ $SHELLINABOX_ENABLE -eq 1 ]]; then
+		shellinabox_start
+	else
+		shellinabox_stop
+	fi
+
+	if [[ $SSH_ENABLE -eq 1 ]]; then
+		if [[ -n $SSH_AUTHORIZED_KEYS ]]; then
+			ssh_set_keys "$SSH_AUTHORIZED_KEYS"
+		fi
+		if [[ $SSH_PASSWORD_ENABLE -eq 1 ]]; then
+			ssh_pass_enable
+		else
+			ssh_pass_disable
+		fi
+		ssh_restart
+	else
+		ssh_stop
+	fi
+
+	if [[ -n $VNC_PASSWORD && $VNC_ENABLE -eq 1 ]]; then
+		hive-passwd setvnc "$VNC_PASSWORD" >/dev/null
+	else
+		x11vnc_stop >/dev/null
+	fi
+}
+
+
+# only declare functions if sourced
+return 0 2>/dev/null
+
+if [[ ! -z "$1" ]]; then
+	# run function if exist
+	if declare -F "$1" >/dev/null; then
+		source /etc/environment
+		[[ -f $RIG_CONF ]] && source $RIG_CONF
+		$@
+		exit
+	fi
+fi
+
+echo "Usage: "
+compgen -A function
+exit 1
