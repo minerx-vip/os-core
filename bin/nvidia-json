@@ -161,6 +161,5 @@ JSON_ARRAY+="]"
 
 # 输出 JSON 数组格式
 echo "$JSON_ARRAY" | tr -d '\t' > /run/os/nvidia-json
-echo "$JSON_ARRAY" | tr -d '\t' > /run/hive/nvidia-json
 echo "$JSON_ARRAY" | tr -d '\t' 
 

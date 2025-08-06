@@ -48,6 +48,9 @@ source ${rig_config}
 
 ## 创建必要的文件夹
 mkdir -p /var/log/miner/custom/
+mkdir -p /run/os/
+mkdir -p  /run/hive/
+
 
 ##########################################################################################
 ## 检查参数
@@ -89,6 +92,8 @@ gpu_count_intel=`/os/bin/gpu-count INTEL`
 ## 系统重启后延迟启动
 ##########################################################################################
 ## 启用显卡
+current_timestamp=$(date +%s)
+time_difference=$((current_timestamp - boot_time))
 if [ $time_difference -lt 100 ]; then
     if command -v nvidia-smi &> /dev/null; then
         [[ $(nvidia-smi -q | grep "Persistence Mode" | grep Disable | wc -l) -gt 0 ]] && nvidia-smi -pm 1
@@ -257,8 +262,8 @@ if [[ ${gpu_count_nvidia} -gt 0 ]]; then
     fi
 
     ## 将 gpus 写入文件
-    echo "$gpus" | tr -d '\t' > /run/os/nvidia-json
-    echo "$gpus" | tr -d '\t' > /run/hive/nvidia-json
+    echo "$gpus" | tr -d '\t' > /run/os/gpu-detect.json
+    echo "$gpus" | tr -d '\t' > /run/hive/gpu-detect.json
 fi
 
 ## 获取 AMD 显卡列表
