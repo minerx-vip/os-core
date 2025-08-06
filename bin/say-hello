@@ -6,6 +6,10 @@
 # # set -o nounset
 # set -u
 
+## 处理 hosts
+tr -cd '\11\12\15\40-\176' < /etc/hosts > /tmp/hosts_cleaned
+mv /tmp/hosts_cleaned /etc/hosts
+
 ## 加载颜色文件
 source /os/bin/colors
 echoCyan "------------------------------------------------------------------ Try to say hello"
@@ -619,8 +623,11 @@ fi
 if [[ "${in_container}" == "false" ]]; then
     sed -i '/^127.0.0.1/d' /etc/hosts
     if ! grep -q "127.0.0.1 $hostname" "/etc/hosts"; then
-        printf "\n127.0.0.1 $hostname" >> /etc/hosts
-        printf "\n127.0.0.1 localhost" >> /etc/hosts
+    {
+        echo ""
+        echo "127.0.0.1 $hostname"
+        echo "127.0.0.1 localhost"
+    } >> /etc/hosts
 
         ## WSL 环境下，需要使用 hostname 命令
         if [[ ${isWSL} == "true" ]]; then
