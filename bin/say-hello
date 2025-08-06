@@ -255,6 +255,10 @@ if [[ ${gpu_count_nvidia} -gt 0 ]]; then
         ## 如果不是合法的 JSON，设置为默认值
         gpus="[]"
     fi
+
+    ## 将 gpus 写入文件
+    echo "$gpus" | tr -d '\t' > /run/os/nvidia-json
+    echo "$gpus" | tr -d '\t' > /run/hive/nvidia-json
 fi
 
 ## 获取 AMD 显卡列表
