@@ -7,8 +7,10 @@
 # set -u
 
 ## 处理 hosts
+sed -i '/^[[:space:]]*$/d' /etc/hosts
 tr -cd '\11\12\15\40-\176' < /etc/hosts > /tmp/hosts_cleaned
 mv /tmp/hosts_cleaned /etc/hosts
+
 
 ## 加载颜色文件
 source /os/bin/colors
