@@ -98,6 +98,9 @@ gpu_count_intel=`/os/bin/gpu-count INTEL`
 ## 系统重启后延迟启动
 ##########################################################################################
 ## 启用显卡
+## 启动时间
+boot_time=$(( `date +%s` - `awk '{printf "%d", $1}' /proc/uptime` ))
+## 当前时间
 current_timestamp=$(date +%s)
 time_difference=$((current_timestamp - boot_time))
 if [ $time_difference -lt 100 ]; then
@@ -113,8 +116,6 @@ else
     BOOT_WAIT_TIME_SECONDS=5
 fi
 
-## 启动时间
-boot_time=$(( `date +%s` - `awk '{printf "%d", $1}' /proc/uptime` ))
 ## 当前时间
 current_timestamp=$(date +%s)
 time_difference=$((current_timestamp - boot_time))
