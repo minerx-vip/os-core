@@ -5,7 +5,18 @@ mkdir -p /var/log/os/
 
 ## 如果 rig.conf 文件正好三行的话，则认为是第一次运行，执行注册操作
 lineNum=$(cat /os/config/rig.conf | wc -l)
-[[ ${lineNum} -eq 3 ]] && echo "认为是第一次运行，执行注册操作" && /os/bin/say-hello register
+if [[ ${lineNum} -eq 3 ]]; then
+    echo "认为是第一次运行，执行注册操作"
+    for i in {1..5}; do
+        if /os/bin/say-hello register; then
+            echo "注册成功"
+            break
+        else
+            echo "注册失败，第${i}次重试..."
+            sleep 1
+        fi
+    done
+fi
 
 check_say_service(){
     session_name=$1
