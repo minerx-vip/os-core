@@ -1,7 +1,5 @@
 #!/bin/bash
 
-
-
 tag_debug=0     # 是否开启 Debug 模式
 for var in "$@"; do
     case "$var" in
@@ -17,7 +15,7 @@ start_ttyd() {
     $shell_ttyd > /dev/null 2>&1 &
     ttyd_pid=$!
     
-    if [[ -z "$ttyd_pid" ]] || ! kill -0 $ttyd_pid 2>/dev/null; then
+    if [ -z "$ttyd_pid" ] || ! kill -0 $ttyd_pid 2>/dev/null; then
         echo "错误: 无法启动 ttyd 服务"
         exit 1
     fi
@@ -155,8 +153,7 @@ else
     [[ ${tag_debug} == 1 ]] && echo "Debug fullPath = $fullPath"
 
     ## 运行反向代理
-    # shell_ttyd="ttyd -p 4201 --check-origin=false bash"
-    shell_ttyd="/os/bin/ttyd -p 4201 --check-origin=false /bin/bash -l"
+    shell_ttyd="ttyd -p 4201 --check-origin=false bash"
     shell_ssh="ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${private_key_file} -N -R ${remotePort}:127.0.0.1:4201 root@${remoteHost} -p ${remoteSshPort}"
     [[ ${tag_debug} == 1 ]] && echo "Debug shell_ttyd = $shell_ttyd"
     [[ ${tag_debug} == 1 ]] && echo "Debug shell_ssh = $shell_ssh"

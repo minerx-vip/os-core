@@ -3,6 +3,10 @@
 source /os/bin/colors
 mkdir -p /var/log/os/
 
+## 如果 rig.conf 文件正好三行的话，则认为是第一次运行，执行注册操作
+lineNum=$(cat /os/config/rig.conf | wc -l)
+[[ ${lineNum} -eq 3 ]] && echo "认为是第一次运行，执行注册操作" && /os/bin/say-hello register
+
 check_say_service(){
     session_name=$1
 
