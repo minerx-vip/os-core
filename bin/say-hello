@@ -93,6 +93,10 @@ gpu_count_amd=`/os/bin/gpu-count AMD`
 gpu_count_nvidia=`/os/bin/gpu-count NVIDIA`
 gpu_count_intel=`/os/bin/gpu-count INTEL`
 
+# 确保数值变量都有默认值
+[[ -z "$gpu_count_amd" ]] && gpu_count_amd=0
+[[ -z "$gpu_count_nvidia" ]] && gpu_count_nvidia=0
+[[ -z "$gpu_count_intel" ]] && gpu_count_intel=0
 
 ##########################################################################################
 ## 系统重启后延迟启动
@@ -110,6 +114,10 @@ if [[ $time_difference -lt 100 ]]; then
 fi
 
 ## 根据GPU数量设置不同的等待时间：有GPU则等待30秒，无GPU则等待5秒
+## 调试信息
+echo "调试 - gpu_count_amd: [$gpu_count_amd]"
+echo "调试 - gpu_count_nvidia: [$gpu_count_nvidia]"
+
 if [[ $gpu_count_amd -gt 0 ]] || [[ $gpu_count_nvidia -gt 0 ]]; then
     BOOT_WAIT_TIME_SECONDS=30
 else
