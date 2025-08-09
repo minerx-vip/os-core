@@ -36,7 +36,7 @@ fi
 
 # 获取所有 GPU 的 ID 列表
 # 获取 Nvidia 显卡数量
-GPU_COUNT=$(/os/bin/gpu-count NVIDIA)
+GPU_COUNT=$(/os/bin/gpu-count NVIDIA | head -n 1)
 if [[ ${GPU_COUNT} -eq 0 ]]; then
     echo "[]"
     exit 0

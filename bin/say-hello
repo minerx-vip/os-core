@@ -89,9 +89,9 @@ fi
 ##########################################################################################
 ## 显卡数量
 ##########################################################################################
-gpu_count_amd=`/os/bin/gpu-count AMD`
-gpu_count_nvidia=`/os/bin/gpu-count NVIDIA`
-gpu_count_intel=`/os/bin/gpu-count INTEL`
+gpu_count_amd=`/os/bin/gpu-count AMD | head -n 1`
+gpu_count_nvidia=`/os/bin/gpu-count NVIDIA | head -n 1`
+gpu_count_intel=`/os/bin/gpu-count INTEL | head -n 1`
 
 # 确保数值变量都有默认值
 [[ -z "$gpu_count_amd" ]] && gpu_count_amd=0

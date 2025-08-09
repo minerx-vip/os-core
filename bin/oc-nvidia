@@ -22,7 +22,7 @@ NVML_TIMEOUT=10
 # [[ -f /hive/bin/colors ]] && source /hive/bin/colors
 
 ## 如果 GPU 数量为 0，退出
-n=`/os/bin/gpu-count NVIDIA`
+n=`/os/bin/gpu-count NVIDIA | head -n 1`
 if [[ $n -eq 0 ]]; then
     echoYellow "No NVIDIA GPU detected"
     exit 0

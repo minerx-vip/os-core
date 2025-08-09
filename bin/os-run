@@ -12,7 +12,7 @@ else
 fi
 
 ## 启动时间
-gpu_count_nvidia=`/os/bin/gpu-count NVIDIA`
+gpu_count_nvidia=`/os/bin/gpu-count NVIDIA | head -n 1`
 if [[ ${gpu_count_nvidia} -gt 0 ]]; then
     boot_time=$(( `date +%s` - `awk '{printf "%d", $1}' /proc/uptime` ))
     while true; do
