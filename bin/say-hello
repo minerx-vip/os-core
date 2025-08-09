@@ -103,14 +103,14 @@ boot_time=$(( `date +%s` - `awk '{printf "%d", $1}' /proc/uptime` ))
 ## 当前时间
 current_timestamp=$(date +%s)
 time_difference=$((current_timestamp - boot_time))
-if [ $time_difference -lt 100 ]; then
+if [[ $time_difference -lt 100 ]]; then
     if command -v nvidia-smi &> /dev/null; then
         [[ $(nvidia-smi -q | grep "Persistence Mode" | grep Disable | wc -l) -gt 0 ]] && nvidia-smi -pm 1
     fi
 fi
 
 ## 根据GPU数量设置不同的等待时间：有GPU则等待30秒，无GPU则等待5秒
-if [ $gpu_count_amd -gt 0 ] || [ $gpu_count_nvidia -gt 0 ]; then
+if [[ $gpu_count_amd -gt 0 ]] || [[ $gpu_count_nvidia -gt 0 ]]; then
     BOOT_WAIT_TIME_SECONDS=30
 else
     BOOT_WAIT_TIME_SECONDS=5
@@ -119,7 +119,7 @@ fi
 ## 当前时间
 current_timestamp=$(date +%s)
 time_difference=$((current_timestamp - boot_time))
-if [ $time_difference -lt $BOOT_WAIT_TIME_SECONDS ]; then
+if [[ $time_difference -lt $BOOT_WAIT_TIME_SECONDS ]]; then
     echo -e "System rebooted. Waiting $BOOT_WAIT_TIME_SECONDS seconds..."
     exit 0
 fi
