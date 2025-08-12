@@ -52,7 +52,7 @@ start_ttyd() {
     echo
     echo
     echo "Link: $fullPath"
-    wait $ttyd_pid $ssh_pid
+    # wait $ttyd_pid $ssh_pid
 }
 
 
