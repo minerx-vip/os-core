@@ -201,10 +201,17 @@ handle_oc_config() {
                 # apply_nvml "-i $i --setclocks $setclocks" || exitcode=$?
                 apply_nvml "-i $i --setcore $setclocks" || exitcode=$?
                 apply_nvml "-i $i --setmem $setmem" || exitcode=$?
-                if [[ "$name" == *"170HX"* ]]; then
-                    echo "这是 170HX 显卡, 跳过设置风扇"
+
+                ## 设置风扇之前检查风扇是否为 N/A
+                fan_speed=$(nvidia-smi -i $i --query-gpu=fan.speed --format=csv,noheader)
+                if [[ "$fan_speed" == "[N/A]" ]]; then
+                    echo "GPU${i} 没有风扇或不可控，跳过设置"
                 else
-                    apply_nvml "-i $i --setfan $setfan" || exitcode=$?
+                    if [[ "$name" == *"170HX"* ]]; then
+                        echo "这是 170HX 显卡, 跳过设置风扇"
+                    else
+                        apply_nvml "-i $i --setfan $setfan" || exitcode=$?
+                    fi
                 fi
             fi
         fi
