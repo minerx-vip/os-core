@@ -25,6 +25,7 @@ systemctl enable os-core.service
 systemctl stop os-core.service
 
 ## 准备配置文件
+cd /os/config
 grep -E 'farm_hash|server_url_domain|down_uri_ip' rig.conf > linshi.conf && mv linshi.conf rig.conf
 conf_lines=$(wc -l < rig.conf)
 if [[ $conf_lines -ne 3 ]]; then
