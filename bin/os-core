@@ -9,7 +9,12 @@ i=1
 if [[ ${lineNum} -eq 3 ]]; then
     echo "认为是第一次运行，执行注册操作"
     while true; do
-        if /os/bin/say-hello register; then
+        ## 尝试注册
+        /os/bin/say-hello register
+
+        ## 检查 rig.conf 文件是否正好三行
+        lineNum=$(wc -l < /os/config/rig.conf)
+        if [[ ${lineNum} -eq 3 ]]; then
             echo "注册成功"
             break
         else
