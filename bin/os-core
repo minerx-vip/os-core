@@ -14,7 +14,7 @@ if [[ ${lineNum} -eq 3 ]]; then
 
         ## 检查 rig.conf 文件是否正好三行
         lineNum=$(wc -l < /os/config/rig.conf)
-        if [[ ${lineNum} -eq 3 ]]; then
+        if [[ ${lineNum} -gt 3 ]]; then
             echo "注册成功"
             break
         else
