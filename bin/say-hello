@@ -478,7 +478,7 @@ fi
 ## 发送请求
 response=`curl -X POST \
     -H "Content-Type: application/json" \
-    --connect-timeout 7 --max-time 15 \
+    --connect-timeout 15 --max-time 25 \
     -d "$request" \
     ${api} ${curl_opts}`
 exitcode=$?
@@ -502,7 +502,7 @@ if [[ $exitcode -ne 0 ]]; then
     
     response=`curl -X POST \
         -H "Content-Type: application/json" \
-        --connect-timeout 7 --max-time 15 \
+        --connect-timeout 15 --max-time 25 \
         -d "$request" \
         ${api} ${curl_opts}`
     exitcode=$?
