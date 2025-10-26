@@ -71,7 +71,6 @@ do
     ## 跳过报错的显卡
     if [[ $busid_tmp =~ "NVIDIA-SMI has failed because it" ]]; then
         GPU_ID=$(expr $GPU_ID + 1)
-        echo "报错了，busid_tmp = $busid_tmp"
         [[ ${GPU_ID} -ge ${GPU_COUNT} ]] && break
         continue
     fi
@@ -79,8 +78,6 @@ do
     ## 兼容 https://www.gpushare.com，跳过空显卡
     if [[ $busid_tmp == "No devices were found" ]]; then
         GPU_ID=$(expr $GPU_ID + 1)
-        echo "busid_tmp = ${busid_tmp}, GPU_ID = ${GPU_ID}"
-        echo "报错了，busid_tmp = $busid_tmp"
         [[ ${GPU_ID} -ge ${GPU_COUNT} ]] && break
         continue
     fi
