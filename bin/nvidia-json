@@ -101,9 +101,16 @@ do
 		else
             name=`lspci -vmms "$busid_tmp" 2>/dev/null | grep "Device:" | grep -v 'SDevice' | awk -F ':' '{print $NF}'`
 	fi
-    [[ "$name" =~ CMP ]] && name="GeForce $name"
-    name=$(echo "$name" | tr -d ":")
-    name="${name#"${name%%[![:space:]]*}"}"
+
+    if [[ "$name" =~ \[(.*)\] ]]; then
+        # 如果有方括号，取里面的内容
+        name="${BASH_REMATCH[1]}"
+    else
+        # 如果没有方括号
+        [[ "$name" =~ CMP ]] && name="GeForce $name"
+        name=$(echo "$name" | tr -d ":")
+        name="${name#"${name%%[![:space:]]*}"}"
+    fi
     JSON_OBJECT+="\"name\":\"$name\","
 
 
