@@ -133,13 +133,17 @@ stats(){
                 export GPU_STATS_JSON="/run/hive/gpu-stats.json"
             fi
 
-            # source h-manifest.conf; source h-config.sh; source h-stats.sh;
-            if [[ ${wallet} == "qubminer" ]]
-            then
-              { source "$MINER_DIR"/h-manifest.conf; "$MINER_DIR"/source h-stats.sh; } 1>&2 # output to stderr
-            else
-                { source "$MINER_DIR"/h-manifest.conf; source "$MINER_DIR"/h-config.sh; source "$MINER_DIR"/h-stats.sh; } 1>&2 # output to stderr
-            fi
+            ## 单独处理 Qubic 飞行表的算力计算
+            # # source h-manifest.conf; source h-config.sh; source h-stats.sh;
+            # if [[ ${wallet} == "qubminer" ]]
+            # then
+            #   { source "$MINER_DIR"/h-manifest.conf; "$MINER_DIR"/source h-stats.sh; } 1>&2 # output to stderr
+            # else
+            #     { source "$MINER_DIR"/h-manifest.conf; source "$MINER_DIR"/h-config.sh; source "$MINER_DIR"/h-stats.sh; } 1>&2 # output to stderr
+            # fi
+
+            ## 不单独处理 Qubic 飞行表的算力计算
+            { source "$MINER_DIR"/h-manifest.conf; source "$MINER_DIR"/h-config.sh; source "$MINER_DIR"/h-stats.sh; } 1>&2 # output to stderr
         fi
 
 
