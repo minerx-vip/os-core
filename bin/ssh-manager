@@ -36,6 +36,7 @@ ssh_start() {
     ## 修改配置文件
 	touch $SSHD_CONF
 	sed -i '/ListenAddress/{s/.*/ListenAddress 0.0.0.0/;h};${x;/^$/{s//ListenAddress 0.0.0.0/;H};x}' $SSHD_CONF
+    sed -i 's/^#\?PasswordAuthentication .*/PasswordAuthentication yes/' $SSHD_CONF
 
 	#delete doubles
 	[[ `grep -c ListenAddress < $SSHD_CONF` -gt 1 ]] && sed -i '$!N; /^\(.*\)\n\1$/!P; D' $SSHD_CONF
