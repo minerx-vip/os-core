@@ -26,7 +26,7 @@ systemctl stop os-core.service
 
 ## 准备配置文件
 cd /os/config
-grep -E 'farm_hash|server_url_domain|down_uri_ip' rig.conf > linshi.conf && mv linshi.conf rig.conf
+grep -E 'farm_hash|server_url_domain|server_url|down_uri_ip' rig.conf > linshi.conf && mv linshi.conf rig.conf
 conf_lines=$(wc -l < rig.conf)
 if [[ $conf_lines -ne 3 ]]; then
     echo "❌ 配置文件行数错误，应为3行，当前为 $conf_lines 行"
