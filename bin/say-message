@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Sends messages to server
 
-RETRY=3	## 重试次数
+RETRY=5	## 重试次数
 type=$1
 data=$2
 id=
