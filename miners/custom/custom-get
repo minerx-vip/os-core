@@ -39,6 +39,14 @@ URLFILE="$MINER_DIR/downloads/${miner}.url"
 # cleanup miner dir if url does not match
 [[ -d $MINER_DIR/$miner && (! -f $URLFILE || $(< $URLFILE) != "$url") ]] && rm -rf $MINER_DIR/$miner
 
+## 是否强制删除目录
+if [[ -f /os/config/DELETE_ON_START ]]; then
+	if [[ -d $MINER_DIR/$miner ]]; then
+		echo "${YELLOW}> Removing previous installation${NOCOLOR}"
+		rm -rf $MINER_DIR/$miner
+	fi
+fi
+
 if [[ -f $archive ]]; then
 	if [[ $force == 1 ]]; then
 		rm $archive
