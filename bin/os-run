@@ -52,9 +52,10 @@ wallet_conf="/os/wallet/${wallet}.conf"
 [[ ! -f ${wallet_conf} ]] && echoYellow "${wallet_conf} file not found" && exit
 source ${wallet_conf}
 
+
 ## 超频
-if [[ -z ${OC} ]] || [[ ${OC} == "" ]] || [[ ${OC} == "[]" ]]; then
-    echo "未设置超频参数"
+if [[ -z ${OC} ]] || [[ ${OC} == "" ]] || [[ ${OC} == "[]" ]] || [ -f /.dockerenv ] || grep -qE "docker|kubepods" /proc/1/cgroup || [[ "${DOCKER_BUILD:-}" = "true" ]]; then
+    echo "未设置超频参数 Or 在容器环境中，跳过超频设置"
 else
     oc-nvidia ${wallet_conf}
 fi
