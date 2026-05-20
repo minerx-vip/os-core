@@ -285,8 +285,21 @@ if [[ ${gpu_count_nvidia} -gt 0 ]]; then
     fi
 
     ## 将 gpus 写入文件
-    echo "$gpus" | tr -d '\t' > /run/os/gpu-detect.json
-    echo "$gpus" | tr -d '\t' > /run/hive/gpu-detect.json
+    _now=$(date +%s)
+    _skip=0
+    for _f in /run/os/gpu-detect.json /run/hive/gpu-detect.json; do
+        if [[ -f "$_f" ]]; then
+            _mtime=$(stat -c %Y "$_f" 2>/dev/null || stat -f %m "$_f" 2>/dev/null)
+            if [[ $(( _now - _mtime )) -lt 60 ]]; then
+                _skip=1
+                break
+            fi
+        fi
+    done
+    if [[ $_skip -eq 0 ]]; then
+        echo "$gpus" | tr -d '\t' > /run/os/gpu-detect.json
+        echo "$gpus" | tr -d '\t' > /run/hive/gpu-detect.json
+    fi
 fi
 
 ## 获取 AMD 显卡列表
