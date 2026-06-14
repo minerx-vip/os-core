@@ -585,9 +585,10 @@ if [[ ! -z ${auto_fan_config} ]] && [[ ${auto_fan_config} != "" ]] && [[ ${auto_
     if [[ -f /hive/sbin/autofan ]]; then
         screen -wipe autofan >/dev/null
         session_count=`screen -ls autofan | grep -c ".autofan"`
-        if [[ $session_count -eq 0 ]]; then
-            systemctl restart hive.service
-        fi
+        ## 临时注释 TODO
+        # if [[ $session_count -eq 0 ]]; then
+        #     systemctl restart hive.service
+        # fi
     fi
 fi
 
