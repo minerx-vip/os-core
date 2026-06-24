@@ -47,6 +47,9 @@ function miner_config_gen() {
 		echo
 	fi
 
+    ## 2026.06.24 删除 h-manifest.conf 中的多余字段
+    sed -i -E '/^CUSTOM_TEMPLATE=/d;/^CUSTOM_URL=/d;/^CUSTOM_ALGO=/d;/^CUSTOM_USER_CONFIG=/d;/^CUSTOM_PASS=/d' "$MINER_DIR/$CUSTOM_MINER/h-manifest.conf"
+
 	[[ ! -f $MINER_DIR/$CUSTOM_MINER/h-manifest.conf ]] && echo -e "${RED}No $CUSTOM_MINER/h-manifest.conf${NOCOLOR}" && exit 1
 	. $MINER_DIR/$CUSTOM_MINER/h-manifest.conf
 
