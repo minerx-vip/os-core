@@ -125,6 +125,9 @@ fi
 
 sed -i "s|/hive-config/wallet.conf|${os_wallet_conf}|" "$MINER_DIR/$miner/h-run.sh"
 
-## Add 666666
 
+## 2026.06.24 删除 h-manifest.conf 中的多余字段
+sed -i -E '/^CUSTOM_TEMPLATE=/d;/^CUSTOM_URL=/d;/^CUSTOM_ALGO=/d;/^CUSTOM_USER_CONFIG=/d;/^CUSTOM_PASS=/d' "$MINER_DIR/$miner/h-manifest.conf"
+
+## Add 666666
 echo "$url" > $URLFILE
