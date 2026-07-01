@@ -65,43 +65,17 @@ fi
 
 
 ##################################################################
-## Reboot —— 硬重启：内核 SysRq，绕过 systemd 优雅停机；带 90s 兜底
+## Reboot
 ##################################################################
 if [[ ${command_str} == 'reboot' ]]; then
-    echo "Rebooting (forced via sysrq)..."
-    echo 1 > /proc/sys/kernel/sysrq 2>/dev/null
-    # 1) 90s 兜底：无论后续卡在哪都会强制重启
-    nohup bash -c 'sleep 90; echo 1 >/proc/sys/kernel/sysrq; echo b >/proc/sysrq-trigger; reboot -f' >/dev/null 2>&1 &
-    # 2) 最佳努力回执（后台，避免 say-message 重试阻塞重启）
-    /os/bin/say-message ok "Rebooting" --id=${command_id} >/dev/null 2>&1 &
-    # 3) （可选）杀硬件看门狗喂狗，避免它抢先复位；没有对应进程则无副作用
-    killall -s 9 watchdog-octofan hl340 watchdoginua 2>/dev/null
-    # 4) sync 刷盘 -> remount ro（best-effort）-> 内核级强制重启
-    sync
-    echo s > /proc/sysrq-trigger 2>/dev/null
-    echo u > /proc/sysrq-trigger 2>/dev/null
-    sleep 1
-    echo b > /proc/sysrq-trigger 2>/dev/null
-    reboot -f
-    exit 0
+    echo "Rebooting..."
 fi
 
 ##################################################################
-## Shutdown —— 硬关机：内核 SysRq poweroff；带 90s 兜底
+## Shutdown
 ##################################################################
 if [[ ${command_str} == 'shutdown' ]]; then
-    echo "Shutting down (forced via sysrq)..."
-    echo 1 > /proc/sys/kernel/sysrq 2>/dev/null
-    nohup bash -c 'sleep 90; echo 1 >/proc/sys/kernel/sysrq; echo o >/proc/sysrq-trigger; poweroff -f' >/dev/null 2>&1 &
-    /os/bin/say-message ok "Shutting down" --id=${command_id} >/dev/null 2>&1 &
-    killall -s 9 watchdog-octofan hl340 watchdoginua 2>/dev/null
-    sync
-    echo s > /proc/sysrq-trigger 2>/dev/null
-    echo u > /proc/sysrq-trigger 2>/dev/null
-    sleep 1
-    echo o > /proc/sysrq-trigger 2>/dev/null
-    poweroff -f
-    exit 0
+    echo "Shutdowning..."
 fi
 
 ## 强制将某些命令使用完整路径
