@@ -30,9 +30,6 @@ RIG_CONF="/os/config/rig.conf"
 [[ ! -f $RIG_CONF ]] && echo -e "No config $RIG_CONF" && exit 1
 source $RIG_CONF
 
-## 定义 API 地址
-API="${server_url}/worker/report"
-
 ## 解析参数
 for i in "$@"; do
 	case $i in
@@ -81,16 +78,13 @@ echo "$payload_json" | jq -n \
 }'
 )
 
-## 发送请求
-for(( try=0; try < RETRY; try++ )); do
-	(( try > 0 )) && echo && sleep 2
-
+send_request() {
+	local API="$1"
 	response=$(echo "$request" | curl --insecure -L --data @- --connect-timeout 7 --max-time 15 --silent \
 			-w "\n%{http_code}\n" -XPOST "${API}" -H "Content-Type: application/json")
 	exitcode=$?
 	httpcode=$(echo "$response" | tail -1)
 	response=$(echo "$response" | head -n -1)
-
 
 	if [[ ! -z ${debug} ]];then
 		echo "${CYAN}> Sending ${WHITE}$type${CYAN} to ${BCYAN}$API${NOCOLOR}"
@@ -98,12 +92,52 @@ for(( try=0; try < RETRY; try++ )); do
 		echo "exitcode = ${exitcode}, httpcode = ${httpcode}, response = ${response}"
 	fi
 
-	## 判断退出码
-	if [[ $exitcode -ne 0 ]]; then
-		echo "${RED}错误 Error: ${BRED}$(human-curl-error $exitcode)${NOCOLOR}"
-		continue
+	[[ $exitcode -eq 0 ]]
+}
+
+## 发送请求
+for(( try=0; try < RETRY; try++ )); do
+	(( try > 0 )) && echo && sleep 2
+
+	## 手动指定默认使用域名地址
+	random_number=0
+
+	## 根据随机数选择URL
+	if [[ $random_number -eq 0 ]]; then
+		api="${server_url%/}/worker/report"
+		url_type="server_url"
 	else
+		api="${server_url_domain%/}/worker/report"
+		url_type="server_url_domain"
+	fi
+
+	send_request "${api}"
+
+	## 判断退出码
+	if [[ $exitcode -eq 0 ]]; then
 		echo "${GREEN}Sends messages to server OK${NOCOLOR}"
 		break
 	fi
+
+	echo "${RED}ERROR: connection to API server failed ${api}, ${response}, Trying alternative URL${NOCOLOR}"
+
+	## 如果第一个URL失败，尝试另一个URL
+	if [[ "$url_type" == "server_url" ]]; then
+		[[ -z "${server_url_domain:-}" || ${server_url_domain} == "null" ]] && {
+			echo "${RED}错误 Error: ${BRED}$(human-curl-error $exitcode)${NOCOLOR}"
+			continue
+		}
+		api="${server_url_domain%/}/worker/report"
+	else
+		api="${server_url%/}/worker/report"
+	fi
+
+	send_request "${api}"
+
+	if [[ $exitcode -eq 0 ]]; then
+		echo "${GREEN}Sends messages to server OK${NOCOLOR}"
+		break
+	fi
+
+	echo "${RED}错误 Error: ${BRED}$(human-curl-error $exitcode)${NOCOLOR}"
 done
