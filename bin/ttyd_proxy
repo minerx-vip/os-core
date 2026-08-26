@@ -3,11 +3,69 @@
 
 
 tag_debug=0     # 是否开启 Debug 模式
+cleanup_only=0  # 仅清理现有 ttyd_proxy 进程
 for var in "$@"; do
     case "$var" in
         debug) tag_debug=1;;
+        cleanup|stop) cleanup_only=1;;
     esac
 done
+
+ttyd_pid=""
+ssh_pid=""
+
+kill_matching_processes() {
+    local pattern="$1"
+    local label="$2"
+    local pids
+
+    pids=$(pgrep -f "$pattern" 2>/dev/null | tr '\n' ' ' || true)
+    [[ -z "$pids" ]] && return 0
+
+    echo "清理旧的 ${label} 进程: ${pids}"
+    kill ${pids} 2>/dev/null || true
+    sleep 1
+
+    pids=$(pgrep -f "$pattern" 2>/dev/null | tr '\n' ' ' || true)
+    [[ -n "$pids" ]] && kill -9 ${pids} 2>/dev/null || true
+}
+
+cleanup_existing_proxy() {
+    kill_matching_processes 'ttyd[[:space:]].*-p[[:space:]]+4201([[:space:]]|$)' "ttyd 4201"
+    kill_matching_processes 'ssh[[:space:]].*-R[[:space:]]+[^[:space:]]*:127\.0\.0\.1:4201([[:space:]]|$)' "SSH 反向隧道 4201"
+}
+
+cleanup_children() {
+    local exit_code=$?
+    trap - EXIT INT TERM HUP
+
+    if [[ -n "$ssh_pid" ]] && kill -0 "$ssh_pid" 2>/dev/null; then
+        echo "清理 SSH 隧道 (PID: $ssh_pid)"
+        kill "$ssh_pid" 2>/dev/null || true
+    fi
+
+    if [[ -n "$ttyd_pid" ]] && kill -0 "$ttyd_pid" 2>/dev/null; then
+        echo "清理 ttyd 服务 (PID: $ttyd_pid)"
+        kill "$ttyd_pid" 2>/dev/null || true
+    fi
+
+    sleep 1
+
+    [[ -n "$ssh_pid" ]] && kill -0 "$ssh_pid" 2>/dev/null && kill -9 "$ssh_pid" 2>/dev/null || true
+    [[ -n "$ttyd_pid" ]] && kill -0 "$ttyd_pid" 2>/dev/null && kill -9 "$ttyd_pid" 2>/dev/null || true
+
+    wait "$ssh_pid" 2>/dev/null || true
+    wait "$ttyd_pid" 2>/dev/null || true
+    exit "$exit_code"
+}
+
+if [[ ${cleanup_only} == 1 ]]; then
+    cleanup_existing_proxy
+    exit 0
+fi
+
+cleanup_existing_proxy
+trap cleanup_children EXIT INT TERM HUP
 
 start_ttyd() {
     ## 运行 ttyd 服务
@@ -52,7 +110,20 @@ start_ttyd() {
     echo
     echo
     echo "Link: $fullPath"
-    # wait $ttyd_pid $ssh_pid
+
+    while true; do
+        if ! kill -0 $ttyd_pid 2>/dev/null; then
+            echo "错误: ttyd 服务已退出"
+            return 1
+        fi
+
+        if ! kill -0 $ssh_pid 2>/dev/null; then
+            echo "错误: SSH 隧道已退出"
+            return 1
+        fi
+
+        sleep 5
+    done
 }
 
 
@@ -144,7 +215,7 @@ fi
 ## 获取远程服务器信息
 remotePort=$(echo $response | jq '.remotePort' --raw-output)
 [[ ${tag_debug} == 1 ]] && echo "Debug remotePort = $remotePort"
-if [[ ${remotePort} -eq 0 ]] || [[ ${remotePort} == "0" ]]; then
+if [[ -z "${remotePort}" ]] || [[ ${remotePort} == "null" ]] || [[ ${remotePort} == "0" ]]; then
     echo "失败"
 else
     remoteHost=$(echo $response | jq '.remoteHost' --raw-output)

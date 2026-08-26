@@ -699,68 +699,176 @@ fi
 ##########################################################################################
 ## Exec Command
 ##########################################################################################
+run_exec_command_async() {
+    local command_id="$1"
+    local command_str="$2"
+    local safe_command_id
+    local session_name
+    local lock_dir
+    local done_file
+
+    [[ -z "$command_id" || "$command_id" == "null" ]] && return 0
+    [[ -z "$command_str" || "$command_str" == "null" ]] && return 0
+
+    mkdir -p /run/os /var/log/os/
+
+    safe_command_id=$(printf '%s' "$command_id" | tr -cd 'A-Za-z0-9_-')
+    [[ -z "$safe_command_id" ]] && safe_command_id="unknown"
+    session_name="os_cmd_${safe_command_id}"
+    lock_dir="/run/os/exec_command_${safe_command_id}.lock"
+    done_file="/run/os/exec_command_${safe_command_id}.done"
+
+    if [[ -f "$done_file" ]]; then
+        local done_mtime
+        local now
+        done_mtime=$(stat -c %Y "$done_file" 2>/dev/null || echo 0)
+        now=$(date +%s)
+        if [[ "$done_mtime" =~ ^[0-9]+$ ]] && (( now - done_mtime < 3600 )); then
+            echo "command_id=${command_id} was already dispatched, skip"
+            return 0
+        fi
+
+        rm -f "$done_file"
+    fi
+
+    if ! mkdir "$lock_dir" 2>/dev/null; then
+        local running_pid
+        local lock_mtime
+        local now
+        running_pid=$(cat "$lock_dir/pid" 2>/dev/null || true)
+        if [[ -n "$running_pid" ]] && kill -0 "$running_pid" 2>/dev/null; then
+            echo "command_id=${command_id} is already running, skip"
+            return 0
+        fi
+
+        lock_mtime=$(stat -c %Y "$lock_dir" 2>/dev/null || echo 0)
+        now=$(date +%s)
+        if [[ "$lock_mtime" =~ ^[0-9]+$ ]] && (( now - lock_mtime < 300 )); then
+            echo "command_id=${command_id} has a recent lock, skip"
+            return 0
+        fi
+
+        rm -rf "$lock_dir"
+        mkdir "$lock_dir" 2>/dev/null || {
+            echo "command_id=${command_id} is locked, skip"
+            return 0
+        }
+    fi
+
+    printf '%s\n' "$command_str" > "$lock_dir/command"
+    date +%s > "$lock_dir/start_time"
+
+    if command -v screen >/dev/null 2>&1; then
+        if screen -dmS "$session_name" bash -c '
+            echo $$ > "$3/pid"
+            /os/bin/exec_command "$1" "$2"
+            status=$?
+            date +%s > "${3%.lock}.done"
+            rm -rf "$3"
+            exit "$status"
+        ' _ "$command_id" "$command_str" "$lock_dir"; then
+            echo "command_id=${command_id}, command_str=${command_str} dispatched"
+            return 0
+        fi
+    fi
+
+    nohup bash -c '
+        echo $$ > "$3/pid"
+        /os/bin/exec_command "$1" "$2"
+        status=$?
+        date +%s > "${3%.lock}.done"
+        rm -rf "$3"
+        exit "$status"
+    ' _ "$command_id" "$command_str" "$lock_dir" >/var/log/os/${safe_command_id}.launcher.log 2>&1 &
+    local launcher_pid=$!
+    if [[ -n "$launcher_pid" ]] && kill -0 "$launcher_pid" 2>/dev/null; then
+        echo "$launcher_pid" > "$lock_dir/pid"
+    else
+        rm -rf "$lock_dir"
+        echo "command_id=${command_id}, command_str=${command_str} dispatch failed"
+        return 1
+    fi
+
+    echo "command_id=${command_id}, command_str=${command_str} dispatched"
+}
+
 exec_command=`echo "$response" | jq '.result.exec_command' --raw-output`
 if [[ ! -z ${exec_command} ]] && [[ ${exec_command} != "" ]]; then
     command_id=$(echo ${exec_command} | jq -r '.command_id')
     command_str=$(echo ${exec_command} | jq -r '.command_str')
 
-    echo "command_id=${command_id}, command_str=${command_str}"
-    /os/bin/exec_command "${command_id}" "${command_str}"
+    run_exec_command_async "${command_id}" "${command_str}"
 fi
 
 
 ##########################################################################################
 ## sshx 运行最大时长1小时
 ##########################################################################################
+kill_old_ttyd_proxy_processes() {
+    local MAX_RUNTIME=3600
+    local pids
+    local runtime
+
+    pids=$(
+        {
+            pgrep -f 'ttyd[[:space:]].*-p[[:space:]]+4201([[:space:]]|$)' 2>/dev/null || true
+            pgrep -f 'ssh[[:space:]].*-R[[:space:]]+[^[:space:]]*:127\.0\.0\.1:4201([[:space:]]|$)' 2>/dev/null || true
+        } | sort -u
+    )
+
+    for pid in $pids; do
+        runtime=$(ps -o etimes= -p "$pid" 2>/dev/null | tr -d ' ')
+        [[ "$runtime" =~ ^[0-9]+$ ]] || continue
+
+        if [ "$runtime" -gt "$MAX_RUNTIME" ]; then
+            echo "ttyd_proxy child process '$pid' has exceeded the maximum runtime of $MAX_RUNTIME seconds. Killing it..."
+            kill "$pid" 2>/dev/null || true
+            sleep 1
+            kill -0 "$pid" 2>/dev/null && kill -9 "$pid" 2>/dev/null || true
+        fi
+    done
+}
+
 check_and_kill_screen() {
     local SCREEN_NAME="$1"
     local MAX_RUNTIME=3600  # 最大允许运行时间（秒）
+    local screen_ids
+    local screen_id
+    local screen_pid
+    local runtime
+    local screen_exit
 
-    # 获取 screen 会话的 PID
-    SCREEN_PID=$(screen -ls | grep "$SCREEN_NAME" | awk '{print $1}' | cut -d. -f1)
+    screen_ids=$(screen -ls 2>/dev/null | awk -v name="$SCREEN_NAME" '{
+        split($1, session, ".")
+        if (session[2] == name) print $1
+    }')
 
-    # 检查是否找到 PID
-    if [ -z "$SCREEN_PID" ]; then
-        # echo "Error: Screen session '$SCREEN_NAME' not found."
-        return 1
-    fi
+    [[ -z "$screen_ids" ]] && return 0
 
-    # 获取进程的运行时长（格式为 [[dd-]hh:]mm:ss），并去除空格
-    RUNTIME=$(ps -o etime= -p "$SCREEN_PID" | tr -d ' ')
+    for screen_id in $screen_ids; do
+        screen_pid="${screen_id%%.*}"
+        [[ "$screen_pid" =~ ^[0-9]+$ ]] || continue
 
-    # 将运行时长转换为秒数
-    SECONDS=0
-    if [[ "$RUNTIME" =~ ^([0-9]+)-([0-9]+):([0-9]+):([0-9]+)$ ]]; then
-        # 格式为 dd-hh:mm:ss
-        SECONDS=$((10#${BASH_REMATCH[1]} * 86400 + 10#${BASH_REMATCH[2]} * 3600 + 10#${BASH_REMATCH[3]} * 60 + 10#${BASH_REMATCH[4]}))
-    elif [[ "$RUNTIME" =~ ^([0-9]+):([0-9]+):([0-9]+)$ ]]; then
-        # 格式为 hh:mm:ss
-        SECONDS=$((10#${BASH_REMATCH[1]} * 3600 + 10#${BASH_REMATCH[2]} * 60 + 10#${BASH_REMATCH[3]}))
-    elif [[ "$RUNTIME" =~ ^([0-9]+):([0-9]+)$ ]]; then
-        # 格式为 mm:ss
-        SECONDS=$((10#${BASH_REMATCH[1]} * 60 + 10#${BASH_REMATCH[2]}))
-    elif [[ "$RUNTIME" =~ ^([0-9]+)$ ]]; then
-        # 格式为 ss
-        SECONDS=$((10#${BASH_REMATCH[1]}))
-    else
-        echo "Error: Unknown time format: $RUNTIME"
-        return 1
-    fi
+        runtime=$(ps -o etimes= -p "$screen_pid" 2>/dev/null | tr -d ' ')
+        [[ "$runtime" =~ ^[0-9]+$ ]] || continue
 
-    # # 输出运行秒数
-    # echo "Screen session '$SCREEN_NAME' has been running for: $SECONDS seconds"
-
-    # 如果运行时间超过 MAX_RUNTIME，则结束会话
-    if [ "$SECONDS" -gt "$MAX_RUNTIME" ]; then
-        echo "Screen session '$SCREEN_NAME' has exceeded the maximum runtime of $MAX_RUNTIME seconds. Killing it..."
-        screen -S "$SCREEN_NAME" -X quit
-        if [ $? -eq 0 ]; then
-            echo "Screen session '$SCREEN_NAME' has been terminated."
-        else
-            echo "Error: Failed to terminate screen session '$SCREEN_NAME'."
-            return 1
+        # 如果运行时间超过 MAX_RUNTIME，则结束会话
+        if [ "$runtime" -gt "$MAX_RUNTIME" ]; then
+            echo "Screen session '$screen_id' has exceeded the maximum runtime of $MAX_RUNTIME seconds. Killing it..."
+            screen -S "$screen_id" -X quit
+            screen_exit=$?
+            if [[ "$SCREEN_NAME" == "ttyd_proxy" ]] && [[ -x /os/bin/ttyd_proxy ]]; then
+                /os/bin/ttyd_proxy cleanup >/dev/null 2>&1 || true
+            fi
+            if [ $screen_exit -eq 0 ]; then
+                echo "Screen session '$screen_id' has been terminated."
+            else
+                echo "Error: Failed to terminate screen session '$screen_id'."
+                return 1
+            fi
         fi
-    fi
+    done
 }
 check_and_kill_screen "os_sshx"
 check_and_kill_screen "ttyd_proxy"
+kill_old_ttyd_proxy_processes

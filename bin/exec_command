@@ -6,6 +6,25 @@ command_str=$2
 log_file="/var/log/os/${command_id}.log"
 rm -f ${log_file}
 
+cleanup_ttyd_proxy() {
+    if screen -list | grep -q "\.ttyd_proxy"; then
+        echo "Found screen session 'ttyd_proxy'. Exiting it..."
+        screen -S ttyd_proxy -X quit
+        sleep 1
+    fi
+
+    if [[ -x /os/bin/ttyd_proxy ]]; then
+        /os/bin/ttyd_proxy cleanup >/dev/null 2>&1 || true
+    fi
+}
+
+is_ttyd_proxy_command() {
+    [[ "${command_str}" == "ttyd_proxy" ]] ||
+    [[ "${command_str}" == "ttyd_proxy "* ]] ||
+    [[ "${command_str}" == "/os/bin/ttyd_proxy" ]] ||
+    [[ "${command_str}" == "/os/bin/ttyd_proxy "* ]]
+}
+
 
 ##################################################################
 ## Start Remote Shell - sshx
@@ -33,19 +52,21 @@ if [[ ${command_str} == 'sshx' ]]; then
         echo "Waiting for sshx to start successfully ${count}"
         sleep 1
     done
+
+    echo "ERROR: sshx did not start successfully within 30 seconds" | tee -a ${log_file}
+    screen -S os_sshx -X quit 2>/dev/null || true
+    /os/bin/say-message error --file=${log_file} --id=${command_id}
+    exit 1
 fi
 
 ##################################################################
 ## Start Remote Shell - minerX SSH Proxy
 ##################################################################
-if [[ ${command_str} == 'ttyd_proxy' ]]; then
-    ## Exit the existing sshx
-    if screen -list | grep -q "\.ttyd_proxy"; then
-        echo "Found screen session 'ttyd_proxy'. Exiting it..."
-        screen -S ttyd_proxy -X quit
-    fi
+if is_ttyd_proxy_command; then
+    ## Exit the existing ttyd_proxy
+    cleanup_ttyd_proxy
 
-    ## Start sshx
+    ## Start ttyd_proxy
     screen -dmL -Logfile ${log_file} -S ttyd_proxy /os/bin/ttyd_proxy
 
     ## Sending message to server
@@ -61,6 +82,11 @@ if [[ ${command_str} == 'ttyd_proxy' ]]; then
         echo "Waiting for ttyd_proxy to start successfully ${count}"
         sleep 1
     done
+
+    echo "ERROR: ttyd_proxy did not start successfully within 30 seconds" | tee -a ${log_file}
+    cleanup_ttyd_proxy
+    /os/bin/say-message error --file=${log_file} --id=${command_id}
+    exit 1
 fi
 
 
