@@ -3,6 +3,81 @@
 # 默认SSH配置文件路径
 SSHD_CONF=/etc/ssh/sshd_config
 
+sshd_bin() {
+    if command -v sshd >/dev/null 2>&1; then
+        command -v sshd
+    elif [[ -x /usr/sbin/sshd ]]; then
+        echo /usr/sbin/sshd
+    else
+        return 1
+    fi
+}
+
+install_openssh_server() {
+    sshd_bin >/dev/null 2>&1 && return 0
+
+    if command -v apt-get >/dev/null 2>&1; then
+        apt-get update && apt-get install -y openssh-server
+    elif command -v dnf >/dev/null 2>&1; then
+        dnf install -y openssh-server
+    elif command -v yum >/dev/null 2>&1; then
+        yum install -y openssh-server
+    else
+        echo "错误: 未找到 sshd, 且无法识别包管理器来安装 openssh-server"
+        return 1
+    fi
+}
+
+sshd_is_running() {
+    if command -v systemctl >/dev/null 2>&1; then
+        systemctl is-active --quiet ssh.service 2>/dev/null && return 0
+        systemctl is-active --quiet sshd.service 2>/dev/null && return 0
+    fi
+
+    pgrep -x sshd >/dev/null 2>&1
+}
+
+restart_sshd() {
+    local bin
+
+    if command -v systemctl >/dev/null 2>&1; then
+        systemctl restart ssh.service 2>/dev/null && return 0
+        systemctl restart sshd.service 2>/dev/null && return 0
+    fi
+
+    if command -v service >/dev/null 2>&1; then
+        service ssh restart 2>/dev/null && return 0
+        service sshd restart 2>/dev/null && return 0
+    fi
+
+    bin=$(sshd_bin) || return 1
+    mkdir -p /run/sshd /var/run/sshd
+    "$bin" -t || return 1
+
+    if pgrep -x sshd >/dev/null 2>&1; then
+        pkill -HUP -x sshd 2>/dev/null || return 1
+    else
+        "$bin"
+    fi
+}
+
+set_sshd_option() {
+    local key="$1"
+    local value="$2"
+
+    touch "$SSHD_CONF"
+    sed -i "/^[[:space:]]*#\?[[:space:]]*${key}[[:space:]]\+/d" "$SSHD_CONF"
+    echo "${key} ${value}" >> "$SSHD_CONF"
+}
+
+validate_sshd_config() {
+    local bin
+
+    bin=$(sshd_bin) || return 1
+    mkdir -p /run/sshd /var/run/sshd
+    "$bin" -t
+}
+
 # 显示帮助信息
 show_help() {
     echo "远程SSH管理工具"
@@ -16,7 +91,7 @@ show_help() {
 
 # 检查SSH服务状态
 ssh_status() {
-    if systemctl is-active --quiet ssh.service; then
+    if sshd_is_running; then
         local listen_address=$(grep -E '^ListenAddress' "$SSHD_CONF" 2>/dev/null || echo "ListenAddress not set")
         echo "SSH服务状态: 运行中"
         echo "监听地址: $listen_address"
@@ -29,30 +104,22 @@ ssh_status() {
 ssh_start() {
 
     ## 如果没有安装 openssh-server 则安装
-    if ! systemctl is-active --quiet ssh.service; then
-        apt-get update && apt-get install -y openssh-server
-    fi
+    install_openssh_server || return 1
 
     ## 修改配置文件
-	touch $SSHD_CONF
-	sed -i '/ListenAddress/{s/.*/ListenAddress 0.0.0.0/;h};${x;/^$/{s//ListenAddress 0.0.0.0/;H};x}' $SSHD_CONF
-    sed -i 's/^#\?PasswordAuthentication .*/PasswordAuthentication yes/' $SSHD_CONF
+    set_sshd_option ListenAddress 0.0.0.0
+    set_sshd_option PasswordAuthentication yes
 
-	#delete doubles
-	[[ `grep -c ListenAddress < $SSHD_CONF` -gt 1 ]] && sed -i '$!N; /^\(.*\)\n\1$/!P; D' $SSHD_CONF
-
-	systemctl restart ssh.service
+    validate_sshd_config || return 1
+	restart_sshd
 }
 
 # 停止SSH远程访问
 ssh_stop() {
-	touch $SSHD_CONF
-	sed -i '/ListenAddress/{s/.*/ListenAddress 127.0.0.1/;h};${x;/^$/{s//ListenAddress 127.0.0.1/;H};x}' $SSHD_CONF
+	set_sshd_option ListenAddress 127.0.0.1
 
-	#delete doubles
-	[[ `grep -c ListenAddress < $SSHD_CONF` -gt 1 ]] && sed -i '$!N; /^\(.*\)\n\1$/!P; D' $SSHD_CONF
-
-	systemctl restart ssh.service
+    validate_sshd_config || return 1
+	restart_sshd
 }
 
 # 主函数
@@ -72,13 +139,21 @@ main() {
     case "$1" in
         start)
             echo "正在启动SSH远程访问..."
-            ssh_start
-            echo "SSH远程访问已启动"
+            if ssh_start; then
+                echo "SSH远程访问已启动"
+            else
+                echo "错误: SSH远程访问启动失败"
+                exit 1
+            fi
             ;;
         stop)
             echo "正在停止SSH远程访问..."
-            ssh_stop
-            echo "SSH远程访问已停止"
+            if ssh_stop; then
+                echo "SSH远程访问已停止"
+            else
+                echo "错误: SSH远程访问停止失败"
+                exit 1
+            fi
             ;;
         status)
             ssh_status
