@@ -792,10 +792,10 @@ run_exec_command_async() {
     echo "command_id=${command_id}, command_str=${command_str} dispatched"
 }
 
-exec_command=`echo "$response" | jq '.result.exec_command' --raw-output`
-if [[ ! -z ${exec_command} ]] && [[ ${exec_command} != "" ]]; then
-    command_id=$(echo ${exec_command} | jq -r '.command_id')
-    command_str=$(echo ${exec_command} | jq -r '.command_str')
+exec_command=$(echo "$response" | jq -c '.result.exec_command // empty')
+if [[ -n "$exec_command" ]]; then
+    command_id=$(echo "$exec_command" | jq -r '.command_id // empty')
+    command_str=$(echo "$exec_command" | jq -r '.command_str // empty')
 
     run_exec_command_async "${command_id}" "${command_str}"
 fi
@@ -808,11 +808,12 @@ kill_old_ttyd_proxy_processes() {
     local MAX_RUNTIME=3600
     local pids
     local runtime
+    local killed_any=0
 
     pids=$(
         {
             pgrep -f 'ttyd[[:space:]].*-p[[:space:]]+4201([[:space:]]|$)' 2>/dev/null || true
-            pgrep -f 'ssh[[:space:]].*-R[[:space:]]+[^[:space:]]*:127\.0\.0\.1:4201([[:space:]]|$)' 2>/dev/null || true
+            pgrep -f 'ssh[[:space:]].*-i[[:space:]]+/os/etc/id_rsa[[:space:]].*-R[[:space:]]+[^[:space:]]*:127\.0\.0\.1:[0-9]+([[:space:]]|$)' 2>/dev/null || true
         } | sort -u
     )
 
@@ -825,8 +826,13 @@ kill_old_ttyd_proxy_processes() {
             kill "$pid" 2>/dev/null || true
             sleep 1
             kill -0 "$pid" 2>/dev/null && kill -9 "$pid" 2>/dev/null || true
+            killed_any=1
         fi
     done
+
+    if [[ "$killed_any" == 1 ]] && [[ -x /os/bin/ttyd_proxy ]]; then
+        /os/bin/ttyd_proxy cleanup >/dev/null 2>&1 || true
+    fi
 }
 
 check_and_kill_screen() {
@@ -872,3 +878,22 @@ check_and_kill_screen() {
 check_and_kill_screen "os_sshx"
 check_and_kill_screen "ttyd_proxy"
 kill_old_ttyd_proxy_processes
+
+cleanup_orphaned_ttyd_proxy_state() {
+    if screen -list 2>/dev/null | grep -q "\.ttyd_proxy"; then
+        return 0
+    fi
+
+    if pgrep -f '(^|[[:space:]])/os/bin/ttyd_proxy([[:space:]]|$)' >/dev/null 2>&1; then
+        return 0
+    fi
+
+    if pgrep -f '(^|[[:space:]])ttyd_proxy([[:space:]]|$)' >/dev/null 2>&1; then
+        return 0
+    fi
+
+    if [[ -x /os/bin/ttyd_proxy ]]; then
+        /os/bin/ttyd_proxy cleanup >/dev/null 2>&1 || true
+    fi
+}
+cleanup_orphaned_ttyd_proxy_state

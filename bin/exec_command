@@ -25,6 +25,30 @@ is_ttyd_proxy_command() {
     [[ "${command_str}" == "/os/bin/ttyd_proxy "* ]]
 }
 
+get_ttyd_proxy_args() {
+    local args=""
+    local arg
+
+    case "${command_str}" in
+        ttyd_proxy) args="" ;;
+        ttyd_proxy\ *) args="${command_str#ttyd_proxy }" ;;
+        /os/bin/ttyd_proxy) args="" ;;
+        /os/bin/ttyd_proxy\ *) args="${command_str#/os/bin/ttyd_proxy }" ;;
+    esac
+
+    ttyd_proxy_args=()
+    [[ -n "$args" ]] && read -r -a ttyd_proxy_args <<< "$args"
+
+    ttyd_proxy_start_timeout=30
+    for arg in "${ttyd_proxy_args[@]}"; do
+        case "$arg" in
+            ssh|client|ssh-client|ssh_client)
+                ttyd_proxy_start_timeout=180
+                ;;
+        esac
+    done
+}
+
 
 ##################################################################
 ## Start Remote Shell - sshx
@@ -65,13 +89,14 @@ fi
 if is_ttyd_proxy_command; then
     ## Exit the existing ttyd_proxy
     cleanup_ttyd_proxy
+    get_ttyd_proxy_args
 
     ## Start ttyd_proxy
-    screen -dmL -Logfile ${log_file} -S ttyd_proxy /os/bin/ttyd_proxy
+    screen -dmL -Logfile ${log_file} -S ttyd_proxy /os/bin/ttyd_proxy "${ttyd_proxy_args[@]}"
 
     ## Sending message to server
     count=0
-    while (( count < 30 )); do
+    while (( count < ttyd_proxy_start_timeout )); do
         (( count++ ))
 
         if [[ -f ${log_file} ]] && grep -q "Link:" "${log_file}"; then
@@ -83,7 +108,7 @@ if is_ttyd_proxy_command; then
         sleep 1
     done
 
-    echo "ERROR: ttyd_proxy did not start successfully within 30 seconds" | tee -a ${log_file}
+    echo "ERROR: ttyd_proxy did not start successfully within ${ttyd_proxy_start_timeout} seconds" | tee -a ${log_file}
     cleanup_ttyd_proxy
     /os/bin/say-message error --file=${log_file} --id=${command_id}
     exit 1

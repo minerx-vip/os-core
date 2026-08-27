@@ -2,17 +2,132 @@
 
 
 
-tag_debug=0     # 是否开启 Debug 模式
-cleanup_only=0  # 仅清理现有 ttyd_proxy 进程
+tag_debug=0       # 是否开启 Debug 模式
+cleanup_only=0    # 仅清理现有 ttyd_proxy 进程
+proxy_mode="web"  # web: 浏览器 shell; ssh: SSH client
+runtime_root="/run"
+[[ -d "$runtime_root" ]] || runtime_root="/tmp"
+proxy_sshd_dir="${runtime_root}/os-ttyd-proxy"
+proxy_sshd_config="${proxy_sshd_dir}/sshd_config"
+proxy_sshd_pid=""
+proxy_sshd_port=""
+proxy_user=""
+proxy_password=""
+sshpass_path=""
+manual_path=""
+proxy_user_prefix="osssh"
+proxy_user_marker="os-ttyd-proxy temporary user"
+proxy_sudoers_prefix="/etc/sudoers.d/os-ttyd-proxy-"
 for var in "$@"; do
     case "$var" in
         debug) tag_debug=1;;
         cleanup|stop) cleanup_only=1;;
+        web|webshell|web-shell|ttyd) proxy_mode="web";;
+        ssh|client|ssh-client|ssh_client) proxy_mode="ssh";;
+        *)
+            echo "错误: 未知 ttyd_proxy 参数 '$var'"
+            exit 1
+        ;;
     esac
 done
 
 ttyd_pid=""
 ssh_pid=""
+
+sshd_bin() {
+    if command -v sshd >/dev/null 2>&1; then
+        command -v sshd
+    elif [[ -x /usr/sbin/sshd ]]; then
+        echo /usr/sbin/sshd
+    else
+        return 1
+    fi
+}
+
+install_package() {
+    local package="$1"
+
+    if command -v apt-get >/dev/null 2>&1; then
+        apt-get update && apt-get install -y "$package"
+    elif command -v dnf >/dev/null 2>&1; then
+        dnf install -y "$package"
+    elif command -v yum >/dev/null 2>&1; then
+        yum install -y "$package"
+    elif command -v apk >/dev/null 2>&1; then
+        apk add --no-cache "$package"
+    else
+        return 1
+    fi
+}
+
+ensure_sshd_available() {
+    sshd_bin >/dev/null 2>&1 && return 0
+
+    if command -v apk >/dev/null 2>&1; then
+        install_package openssh >/dev/null 2>&1 || return 1
+    else
+        install_package openssh-server >/dev/null 2>&1 || return 1
+    fi
+
+    sshd_bin >/dev/null 2>&1
+}
+
+ensure_sudo_available() {
+    command -v sudo >/dev/null 2>&1 && return 0
+    install_package sudo >/dev/null 2>&1 || return 1
+    command -v sudo >/dev/null 2>&1
+}
+
+ensure_user_tools_available() {
+    if { command -v useradd >/dev/null 2>&1 || command -v adduser >/dev/null 2>&1; } &&
+        command -v chpasswd >/dev/null 2>&1; then
+        return 0
+    fi
+
+    if command -v apk >/dev/null 2>&1; then
+        install_package shadow >/dev/null 2>&1 || true
+    elif command -v apt-get >/dev/null 2>&1; then
+        install_package passwd >/dev/null 2>&1 || true
+    elif command -v dnf >/dev/null 2>&1; then
+        install_package shadow-utils >/dev/null 2>&1 || true
+    elif command -v yum >/dev/null 2>&1; then
+        install_package shadow-utils >/dev/null 2>&1 || true
+    fi
+
+    { command -v useradd >/dev/null 2>&1 || command -v adduser >/dev/null 2>&1; } &&
+        command -v chpasswd >/dev/null 2>&1
+}
+
+random_hex() {
+    local bytes="$1"
+
+    if command -v openssl >/dev/null 2>&1; then
+        openssl rand -hex "$bytes"
+    else
+        od -An -N"$bytes" -tx1 /dev/urandom | tr -d ' \n'
+    fi
+}
+
+is_proxy_user_name() {
+    local user="$1"
+    [[ "$user" =~ ^${proxy_user_prefix}[0-9a-f]{8}$ ]]
+}
+
+list_proxy_users() {
+    local passwd_source
+
+    if command -v getent >/dev/null 2>&1; then
+        passwd_source=$(getent passwd)
+    else
+        passwd_source=$(cat /etc/passwd 2>/dev/null)
+    fi
+
+    while IFS=: read -r name _ _ _ gecos _ _; do
+        if is_proxy_user_name "$name" && [[ "$gecos" == "$proxy_user_marker" ]]; then
+            echo "$name"
+        fi
+    done <<< "$passwd_source"
+}
 
 kill_matching_processes() {
     local pattern="$1"
@@ -30,9 +145,67 @@ kill_matching_processes() {
     [[ -n "$pids" ]] && kill -9 ${pids} 2>/dev/null || true
 }
 
+cleanup_proxy_user() {
+    local user="$1"
+    local home_dir=""
+
+    [[ -z "$user" ]] && return 0
+    is_proxy_user_name "$user" || return 0
+
+    rm -f "${proxy_sudoers_prefix}${user}" 2>/dev/null || true
+
+    if id "$user" >/dev/null 2>&1; then
+        echo "清理临时 SSH 用户: $user"
+        if command -v getent >/dev/null 2>&1; then
+            home_dir=$(getent passwd "$user" | awk -F: '{print $6}')
+        else
+            home_dir=$(awk -F: -v user="$user" '$1 == user {print $6}' /etc/passwd 2>/dev/null)
+        fi
+
+        pkill -TERM -u "$user" 2>/dev/null || true
+        sleep 1
+        pkill -KILL -u "$user" 2>/dev/null || true
+
+        if command -v userdel >/dev/null 2>&1; then
+            userdel -r "$user" 2>/dev/null || userdel "$user" 2>/dev/null || true
+        elif command -v deluser >/dev/null 2>&1; then
+            deluser --remove-home "$user" 2>/dev/null || deluser "$user" 2>/dev/null || true
+        fi
+
+        if [[ -n "$home_dir" && "$home_dir" == "/home/${user}" ]]; then
+            rm -rf "$home_dir" 2>/dev/null || true
+        fi
+    fi
+}
+
+cleanup_proxy_users() {
+    local user
+
+    cleanup_proxy_user "$proxy_user"
+
+    while read -r user; do
+        cleanup_proxy_user "$user"
+    done < <(list_proxy_users)
+}
+
+cleanup_proxy_sshd() {
+    if [[ -n "$proxy_sshd_pid" ]] && kill -0 "$proxy_sshd_pid" 2>/dev/null; then
+        echo "清理专用 sshd 服务 (PID: $proxy_sshd_pid)"
+        kill "$proxy_sshd_pid" 2>/dev/null || true
+        sleep 1
+        kill -0 "$proxy_sshd_pid" 2>/dev/null && kill -9 "$proxy_sshd_pid" 2>/dev/null || true
+    fi
+
+    kill_matching_processes 'sshd[[:space:]].*-f[[:space:]]+[^[:space:]]*/os-ttyd-proxy/sshd_config([[:space:]]|$)' "专用 sshd"
+    rm -f "$proxy_sshd_config" "${proxy_sshd_dir}/sshd.pid" "${proxy_sshd_dir}/sshd.log" 2>/dev/null || true
+    rmdir "$proxy_sshd_dir" 2>/dev/null || true
+}
+
 cleanup_existing_proxy() {
     kill_matching_processes 'ttyd[[:space:]].*-p[[:space:]]+4201([[:space:]]|$)' "ttyd 4201"
-    kill_matching_processes 'ssh[[:space:]].*-R[[:space:]]+[^[:space:]]*:127\.0\.0\.1:4201([[:space:]]|$)' "SSH 反向隧道 4201"
+    kill_matching_processes 'ssh[[:space:]].*-i[[:space:]]+/os/etc/id_rsa[[:space:]].*-R[[:space:]]+[^[:space:]]*:127\.0\.0\.1:[0-9]+([[:space:]]|$)' "SSH 反向隧道"
+    cleanup_proxy_sshd
+    cleanup_proxy_users
 }
 
 cleanup_children() {
@@ -49,13 +222,18 @@ cleanup_children() {
         kill "$ttyd_pid" 2>/dev/null || true
     fi
 
+    cleanup_proxy_sshd
+    cleanup_proxy_users
+
     sleep 1
 
     [[ -n "$ssh_pid" ]] && kill -0 "$ssh_pid" 2>/dev/null && kill -9 "$ssh_pid" 2>/dev/null || true
     [[ -n "$ttyd_pid" ]] && kill -0 "$ttyd_pid" 2>/dev/null && kill -9 "$ttyd_pid" 2>/dev/null || true
+    [[ -n "$proxy_sshd_pid" ]] && kill -0 "$proxy_sshd_pid" 2>/dev/null && kill -9 "$proxy_sshd_pid" 2>/dev/null || true
 
     wait "$ssh_pid" 2>/dev/null || true
     wait "$ttyd_pid" 2>/dev/null || true
+    wait "$proxy_sshd_pid" 2>/dev/null || true
     exit "$exit_code"
 }
 
@@ -67,30 +245,250 @@ fi
 cleanup_existing_proxy
 trap cleanup_children EXIT INT TERM HUP
 
-start_ttyd() {
-    ## 运行 ttyd 服务
-    echo "启动 ttyd 服务..."
-    
-    # 启动 ttyd
-    $shell_ttyd > /dev/null 2>&1 &
-    ttyd_pid=$!
-    
-    if [[ -z "$ttyd_pid" ]] || ! kill -0 $ttyd_pid 2>/dev/null; then
-        echo "错误: 无法启动 ttyd 服务"
-        exit 1
+port_is_listening() {
+    local port="$1"
+    local port_hex
+
+    if command -v ss >/dev/null 2>&1; then
+        ss -lnt | awk -v port="$port" '$4 ~ ":" port "$" {found=1} END {exit found ? 0 : 1}'
+    elif command -v netstat >/dev/null 2>&1; then
+        netstat -lnt | awk -v port="$port" '$4 ~ ":" port "$" {found=1} END {exit found ? 0 : 1}'
+    elif [[ -r /proc/net/tcp || -r /proc/net/tcp6 ]]; then
+        port_hex=$(printf '%04X' "$port")
+        awk -v port="$port_hex" '
+            NR > 1 {
+                split($2, local_addr, ":")
+                if (toupper(local_addr[2]) == port && $4 == "0A") {
+                    found=1
+                }
+            }
+            END {exit found ? 0 : 1}
+        ' /proc/net/tcp /proc/net/tcp6 2>/dev/null
+    else
+        return 1
     fi
-    
-    echo "ttyd 服务已启动 (PID: $ttyd_pid)"
-    
-    # 等待 ttyd 服务启动
-    sleep 2
-    
-    # 检查 ttyd 是否仍在运行
-    if ! kill -0 $ttyd_pid 2>/dev/null; then
-        echo "错误: ttyd 服务启动后意外退出"
-        exit 1
+}
+
+choose_proxy_sshd_port() {
+    local port
+
+    for ((port=2222; port<=2299; port++)); do
+        if ! port_is_listening "$port"; then
+            echo "$port"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+ensure_host_keys() {
+    local key
+
+    for key in /etc/ssh/ssh_host_ed25519_key /etc/ssh/ssh_host_rsa_key /etc/ssh/ssh_host_ecdsa_key; do
+        [[ -r "$key" ]] && return 0
+    done
+
+    if command -v ssh-keygen >/dev/null 2>&1; then
+        ssh-keygen -A >/dev/null 2>&1 || true
     fi
-    
+
+    for key in /etc/ssh/ssh_host_ed25519_key /etc/ssh/ssh_host_rsa_key /etc/ssh/ssh_host_ecdsa_key; do
+        [[ -r "$key" ]] && return 0
+    done
+
+    echo "错误: 未找到 sshd HostKey，且无法自动生成"
+    return 1
+}
+
+create_proxy_user() {
+    local suffix
+    local sudoers_file
+    local attempt
+
+    if ! ensure_user_tools_available; then
+        echo "错误: 未找到 useradd/adduser 或 chpasswd，无法创建临时 SSH 用户"
+        return 1
+    fi
+
+    if ! ensure_sudo_available; then
+        echo "错误: 未安装 sudo，临时 SSH 用户无法免密切换 root"
+        return 1
+    fi
+
+    for ((attempt=1; attempt<=10; attempt++)); do
+        suffix=$(random_hex 4)
+        [[ "$suffix" =~ ^[0-9a-f]{8}$ ]] || continue
+        proxy_user="${proxy_user_prefix}${suffix}"
+        if ! id "$proxy_user" >/dev/null 2>&1; then
+            break
+        fi
+    done
+
+    if id "$proxy_user" >/dev/null 2>&1; then
+        echo "错误: 无法生成未占用的临时 SSH 用户名"
+        return 1
+    fi
+
+    proxy_password=$(random_hex 12)
+    if [[ ! "$proxy_password" =~ ^[0-9a-f]{24}$ ]]; then
+        echo "错误: 无法生成临时 SSH 用户密码"
+        return 1
+    fi
+
+    if command -v useradd >/dev/null 2>&1; then
+        useradd -m -s /bin/bash -c "$proxy_user_marker" "$proxy_user" || return 1
+    else
+        adduser -D -s /bin/bash -g "$proxy_user_marker" "$proxy_user" || return 1
+    fi
+
+    if ! printf '%s:%s\n' "$proxy_user" "$proxy_password" | chpasswd; then
+        cleanup_proxy_user "$proxy_user"
+        return 1
+    fi
+
+    mkdir -p /etc/sudoers.d
+    sudoers_file="${proxy_sudoers_prefix}${proxy_user}"
+    cat > "$sudoers_file" <<EOF
+${proxy_user} ALL=(ALL) NOPASSWD: ALL
+EOF
+    chmod 0440 "$sudoers_file"
+
+    if command -v visudo >/dev/null 2>&1 && ! visudo -cf "$sudoers_file" >/dev/null 2>&1; then
+        echo "错误: 临时 SSH 用户 sudoers 配置校验失败"
+        cleanup_proxy_user "$proxy_user"
+        return 1
+    fi
+
+    if ! sudo -n -l -U "$proxy_user" >/dev/null 2>&1; then
+        echo "错误: 临时 SSH 用户 sudo 权限未生效"
+        cleanup_proxy_user "$proxy_user"
+        return 1
+    fi
+}
+
+write_proxy_sshd_config() {
+    local key
+    local host_key_count=0
+
+    mkdir -p "$proxy_sshd_dir" /run/sshd /var/run/sshd
+
+    {
+        echo "Port ${proxy_sshd_port}"
+        echo "ListenAddress 127.0.0.1"
+        echo "PidFile ${proxy_sshd_dir}/sshd.pid"
+
+        for key in /etc/ssh/ssh_host_ed25519_key /etc/ssh/ssh_host_rsa_key /etc/ssh/ssh_host_ecdsa_key; do
+            if [[ -r "$key" ]]; then
+                echo "HostKey $key"
+                host_key_count=$((host_key_count + 1))
+            fi
+        done
+
+        echo "PasswordAuthentication yes"
+        echo "PubkeyAuthentication no"
+        echo "PermitRootLogin no"
+        echo "PermitEmptyPasswords no"
+        echo "AllowUsers ${proxy_user}"
+        echo "X11Forwarding no"
+        echo "AllowTcpForwarding no"
+        echo "AllowAgentForwarding no"
+        echo "PermitTunnel no"
+        echo "GatewayPorts no"
+        echo "PermitTTY yes"
+        echo "LogLevel VERBOSE"
+    } > "$proxy_sshd_config"
+
+    if [[ "$host_key_count" -eq 0 ]]; then
+        echo "错误: 专用 sshd 配置没有可用 HostKey"
+        return 1
+    fi
+}
+
+start_proxy_sshd() {
+    local bin
+    local count
+
+    if ! ensure_sshd_available; then
+        echo "错误: 未找到 sshd"
+        return 1
+    fi
+
+    bin=$(sshd_bin) || return 1
+
+    proxy_sshd_port=$(choose_proxy_sshd_port) || {
+        echo "错误: 无可用本地端口启动专用 sshd"
+        return 1
+    }
+
+    ensure_host_keys || return 1
+    create_proxy_user || return 1
+    write_proxy_sshd_config || {
+        cleanup_proxy_user "$proxy_user"
+        return 1
+    }
+
+    if ! "$bin" -t -f "$proxy_sshd_config"; then
+        cleanup_proxy_user "$proxy_user"
+        return 1
+    fi
+
+    "$bin" -D -e -f "$proxy_sshd_config" > "${proxy_sshd_dir}/sshd.log" 2>&1 &
+    proxy_sshd_pid=$!
+
+    for ((count=1; count<=10; count++)); do
+        if ! kill -0 "$proxy_sshd_pid" 2>/dev/null; then
+            echo "错误: 专用 sshd 启动失败"
+            [[ -f "${proxy_sshd_dir}/sshd.log" ]] && tail -n 20 "${proxy_sshd_dir}/sshd.log"
+            cleanup_proxy_user "$proxy_user"
+            return 1
+        fi
+
+        if port_is_listening "$proxy_sshd_port"; then
+            echo "专用 sshd 已启动: 127.0.0.1:${proxy_sshd_port} (PID: $proxy_sshd_pid)"
+            return 0
+        fi
+
+        sleep 1
+    done
+
+    echo "错误: 专用 sshd 未监听 127.0.0.1:${proxy_sshd_port}"
+    cleanup_proxy_sshd
+    cleanup_proxy_user "$proxy_user"
+    return 1
+}
+
+start_proxy() {
+    if [[ "$proxy_mode" == "web" ]]; then
+        ## 运行 ttyd 服务
+        echo "启动 ttyd 服务..."
+
+        # 启动 ttyd
+        $shell_ttyd > /dev/null 2>&1 &
+        ttyd_pid=$!
+
+        if [[ -z "$ttyd_pid" ]] || ! kill -0 $ttyd_pid 2>/dev/null; then
+            echo "错误: 无法启动 ttyd 服务"
+            exit 1
+        fi
+
+        echo "ttyd 服务已启动 (PID: $ttyd_pid)"
+
+        # 等待 ttyd 服务启动
+        sleep 2
+
+        # 检查 ttyd 是否仍在运行
+        if ! kill -0 $ttyd_pid 2>/dev/null; then
+            echo "错误: ttyd 服务启动后意外退出"
+            exit 1
+        fi
+    else
+        if [[ -z "$proxy_sshd_pid" ]] || ! kill -0 "$proxy_sshd_pid" 2>/dev/null; then
+            echo "错误: 专用 sshd 未运行"
+            exit 1
+        fi
+    fi
+
     # 启动 SSH 隧道（在后台运行）
     echo "正在建立 SSH 隧道..."
     $shell_ssh -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 &
@@ -102,7 +500,7 @@ start_ttyd() {
     # 检查 SSH 隧道是否建立成功
     if ! kill -0 $ssh_pid 2>/dev/null; then
         echo "错误: SSH 隧道建立失败"
-        kill $ttyd_pid 2>/dev/null
+        [[ -n "$ttyd_pid" ]] && kill $ttyd_pid 2>/dev/null
         exit 1
     fi
 
@@ -110,9 +508,16 @@ start_ttyd() {
     echo
     echo
     echo "Link: $fullPath"
+    if [[ "$proxy_mode" == "ssh" ]]; then
+        echo "SSHPass: $sshpass_path"
+        echo "Manual: $manual_path"
+        echo "User: $proxy_user"
+        echo "Password: $proxy_password"
+        echo "Root: sudo -i"
+    fi
 
     while true; do
-        if ! kill -0 $ttyd_pid 2>/dev/null; then
+        if [[ "$proxy_mode" == "web" ]] && ! kill -0 $ttyd_pid 2>/dev/null; then
             echo "错误: ttyd 服务已退出"
             return 1
         fi
@@ -135,10 +540,11 @@ source /os/config/rig.conf
 [[ ${tag_debug} == 1 ]] && echo "Debug ssh_proxy_server_2 = $ssh_proxy_server_2"
 [[ ${tag_debug} == 1 ]] && echo "Debug ssh_proxy_api_port = $ssh_proxy_api_port"
 [[ ${tag_debug} == 1 ]] && echo "Debug ssh_proxy_token = $ssh_proxy_token"
+[[ ${tag_debug} == 1 ]] && echo "Debug proxy_mode = $proxy_mode"
 
 ## 拼接请求参数
-api_1="http://${ssh_proxy_server_1}:${ssh_proxy_api_port}/api/ports/first-available"
-api_2="http://${ssh_proxy_server_2}:${ssh_proxy_api_port}/api/ports/first-available"
+api_1="http://${ssh_proxy_server_1}:${ssh_proxy_api_port}/api/ports/first-available?mode=${proxy_mode}"
+api_2="http://${ssh_proxy_server_2}:${ssh_proxy_api_port}/api/ports/first-available?mode=${proxy_mode}"
 
 ## 下载私钥文件
 private_key_file="/os/etc/id_rsa"
@@ -226,12 +632,23 @@ else
     [[ ${tag_debug} == 1 ]] && echo "Debug fullPath = $fullPath"
 
     ## 运行反向代理
-    # shell_ttyd="ttyd -p 4201 --check-origin=false bash"
-    shell_ttyd="/os/bin/ttyd -p 4201 --check-origin=false /bin/bash -l"
-    shell_ssh="ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${private_key_file} -N -R ${remotePort}:127.0.0.1:4201 root@${remoteHost} -p ${remoteSshPort}"
+    if [[ "$proxy_mode" == "ssh" ]]; then
+        shell_ttyd=""
+        start_proxy_sshd || exit 1
+        shell_ssh="ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${private_key_file} -N -R 0.0.0.0:${remotePort}:127.0.0.1:${proxy_sshd_port} root@${remoteHost} -p ${remoteSshPort}"
+        manual_path="ssh ${proxy_user}@${remoteHost} -p ${remotePort}"
+        sshpass_path="sshpass -p '${proxy_password}' ssh ${proxy_user}@${remoteHost} -p ${remotePort}"
+        fullPath="$manual_path"
+    else
+        # shell_ttyd="ttyd -p 4201 --check-origin=false bash"
+        shell_ttyd="/os/bin/ttyd -p 4201 --check-origin=false /bin/bash -l"
+        shell_ssh="ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${private_key_file} -N -R ${remotePort}:127.0.0.1:4201 root@${remoteHost} -p ${remoteSshPort}"
+    fi
+
     [[ ${tag_debug} == 1 ]] && echo "Debug shell_ttyd = $shell_ttyd"
     [[ ${tag_debug} == 1 ]] && echo "Debug shell_ssh = $shell_ssh"
+    [[ ${tag_debug} == 1 ]] && echo "Debug fullPath = $fullPath"
 
     ## 启动反向代理
-    start_ttyd
+    start_proxy
 fi
