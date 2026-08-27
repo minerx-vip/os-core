@@ -808,6 +808,132 @@ fi
 ##########################################################################################
 ## sshx 运行最大时长1小时
 ##########################################################################################
+ttyd_proxy_state_dir() {
+    local dir
+
+    for dir in /run/os-ttyd-proxy /tmp/os-ttyd-proxy; do
+        if [[ -f "$dir/state" || -f "$dir/last_activity" ]]; then
+            echo "$dir"
+            return 0
+        fi
+    done
+
+    echo "/run/os-ttyd-proxy"
+}
+
+ttyd_proxy_state_value() {
+    local key="$1"
+    local dir
+    local state_file
+
+    dir=$(ttyd_proxy_state_dir)
+    state_file="${dir}/state"
+    [[ -r "$state_file" ]] || return 1
+
+    awk -F= -v key="$key" '$1 == key { sub(/^[^=]*=/, ""); print; exit }' "$state_file"
+}
+
+ttyd_proxy_has_established_connection() {
+    local port="$1"
+    local port_hex
+    local proc_files=()
+
+    [[ "$port" =~ ^[0-9]+$ ]] || return 1
+
+    if command -v ss >/dev/null 2>&1; then
+        ss -tn 2>/dev/null | awk -v port="$port" '($1 == "ESTAB" || $1 == "ESTABLISHED") && $4 ~ ":" port "$" {found=1} END {exit found ? 0 : 1}' && return 0
+    fi
+
+    if command -v netstat >/dev/null 2>&1; then
+        netstat -tn 2>/dev/null | awk -v port="$port" '$6 == "ESTABLISHED" && $4 ~ ":" port "$" {found=1} END {exit found ? 0 : 1}' && return 0
+    fi
+
+    if [[ -r /proc/net/tcp || -r /proc/net/tcp6 ]]; then
+        port_hex=$(printf '%04X' "$port")
+        [[ -r /proc/net/tcp ]] && proc_files+=("/proc/net/tcp")
+        [[ -r /proc/net/tcp6 ]] && proc_files+=("/proc/net/tcp6")
+        awk -v port="$port_hex" '
+            NR > 1 {
+                split($2, local_addr, ":")
+                if (toupper(local_addr[2]) == port && $4 == "01") {
+                    found=1
+                }
+            }
+            END {exit found ? 0 : 1}
+        ' "${proc_files[@]}" 2>/dev/null && return 0
+    fi
+
+    if command -v lsof >/dev/null 2>&1; then
+        lsof -nP -iTCP:"$port" -sTCP:ESTABLISHED 2>/dev/null | awk 'NR > 1 {found=1} END {exit found ? 0 : 1}' && return 0
+    fi
+
+    return 1
+}
+
+ttyd_proxy_should_cleanup() {
+    local runtime="${1:-0}"
+    local now
+    local dir
+    local state_file
+    local last_activity_file
+    local mode
+    local start_time
+    local last_activity
+    local idle_timeout
+    local max_runtime
+    local proxy_sshd_port
+
+    now=$(date +%s)
+    dir=$(ttyd_proxy_state_dir)
+    state_file="${dir}/state"
+    last_activity_file="${dir}/last_activity"
+
+    if [[ ! -r "$state_file" ]]; then
+        [[ "$runtime" =~ ^[0-9]+$ ]] && (( runtime > 3600 ))
+        return
+    fi
+
+    mode=$(ttyd_proxy_state_value mode)
+    if [[ "$mode" != "ssh" ]]; then
+        [[ "$runtime" =~ ^[0-9]+$ ]] && (( runtime > 3600 ))
+        return
+    fi
+
+    start_time=$(ttyd_proxy_state_value start_time)
+    last_activity=$(cat "$last_activity_file" 2>/dev/null || ttyd_proxy_state_value last_activity)
+    idle_timeout=$(ttyd_proxy_state_value idle_timeout)
+    max_runtime=$(ttyd_proxy_state_value max_runtime)
+    proxy_sshd_port=$(ttyd_proxy_state_value proxy_sshd_port)
+
+    [[ "$idle_timeout" =~ ^[0-9]+$ ]] || idle_timeout=1800
+    [[ "$max_runtime" =~ ^[0-9]+$ ]] || max_runtime=14400
+    [[ "$start_time" =~ ^[0-9]+$ ]] || {
+        if [[ "$runtime" =~ ^[0-9]+$ ]]; then
+            start_time=$((now - runtime))
+        else
+            start_time="$now"
+        fi
+    }
+
+    if (( now - start_time > max_runtime )); then
+        echo "ttyd_proxy ssh has reached max runtime ${max_runtime}s. Cleaning up..."
+        return 0
+    fi
+
+    if ttyd_proxy_has_established_connection "$proxy_sshd_port"; then
+        echo "$now" > "$last_activity_file" 2>/dev/null || true
+        return 1
+    fi
+
+    [[ "$last_activity" =~ ^[0-9]+$ ]] || last_activity="$start_time"
+    if (( now - last_activity > idle_timeout )); then
+        echo "ttyd_proxy ssh has been idle for more than ${idle_timeout}s. Cleaning up..."
+        return 0
+    fi
+
+    return 1
+}
+
 kill_old_ttyd_proxy_processes() {
     local MAX_RUNTIME=3600
     local pids
@@ -825,8 +951,8 @@ kill_old_ttyd_proxy_processes() {
         runtime=$(ps -o etimes= -p "$pid" 2>/dev/null | tr -d ' ')
         [[ "$runtime" =~ ^[0-9]+$ ]] || continue
 
-        if [ "$runtime" -gt "$MAX_RUNTIME" ]; then
-            echo "ttyd_proxy child process '$pid' has exceeded the maximum runtime of $MAX_RUNTIME seconds. Killing it..."
+        if ttyd_proxy_should_cleanup "$runtime"; then
+            echo "ttyd_proxy child process '$pid' should be cleaned up. Killing it..."
             kill "$pid" 2>/dev/null || true
             sleep 1
             kill -0 "$pid" 2>/dev/null && kill -9 "$pid" 2>/dev/null || true
@@ -862,20 +988,23 @@ check_and_kill_screen() {
         runtime=$(ps -o etimes= -p "$screen_pid" 2>/dev/null | tr -d ' ')
         [[ "$runtime" =~ ^[0-9]+$ ]] || continue
 
-        # 如果运行时间超过 MAX_RUNTIME，则结束会话
-        if [ "$runtime" -gt "$MAX_RUNTIME" ]; then
-            echo "Screen session '$screen_id' has exceeded the maximum runtime of $MAX_RUNTIME seconds. Killing it..."
-            screen -S "$screen_id" -X quit
-            screen_exit=$?
-            if [[ "$SCREEN_NAME" == "ttyd_proxy" ]] && [[ -x /os/bin/ttyd_proxy ]]; then
-                /os/bin/ttyd_proxy cleanup >/dev/null 2>&1 || true
-            fi
-            if [ $screen_exit -eq 0 ]; then
-                echo "Screen session '$screen_id' has been terminated."
-            else
-                echo "Error: Failed to terminate screen session '$screen_id'."
-                return 1
-            fi
+        if [[ "$SCREEN_NAME" == "ttyd_proxy" ]]; then
+            ttyd_proxy_should_cleanup "$runtime" || continue
+        elif [ "$runtime" -le "$MAX_RUNTIME" ]; then
+            continue
+        fi
+
+        echo "Screen session '$screen_id' should be cleaned up. Killing it..."
+        screen -S "$screen_id" -X quit
+        screen_exit=$?
+        if [[ "$SCREEN_NAME" == "ttyd_proxy" ]] && [[ -x /os/bin/ttyd_proxy ]]; then
+            /os/bin/ttyd_proxy cleanup >/dev/null 2>&1 || true
+        fi
+        if [ $screen_exit -eq 0 ]; then
+            echo "Screen session '$screen_id' has been terminated."
+        else
+            echo "Error: Failed to terminate screen session '$screen_id'."
+            return 1
         fi
     done
 }

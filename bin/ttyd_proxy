@@ -9,6 +9,8 @@ runtime_root="/run"
 [[ -d "$runtime_root" ]] || runtime_root="/tmp"
 proxy_sshd_dir="${runtime_root}/os-ttyd-proxy"
 proxy_sshd_config="${proxy_sshd_dir}/sshd_config"
+proxy_state_file="${proxy_sshd_dir}/state"
+proxy_last_activity_file="${proxy_sshd_dir}/last_activity"
 proxy_sshd_pid=""
 proxy_sshd_port=""
 proxy_user=""
@@ -16,8 +18,18 @@ proxy_password=""
 sshpass_path=""
 manual_path=""
 proxy_user_prefix="osssh"
-proxy_user_marker="os-ttyd-proxy temporary user"
-proxy_sudoers_prefix="/etc/sudoers.d/os-ttyd-proxy-"
+proxy_user_marker="os-ssh-client temporary user"
+proxy_user_legacy_marker="os-ttyd-proxy temporary user"
+proxy_sudoers_prefix="/etc/sudoers.d/os-ssh-client-"
+proxy_sudoers_legacy_prefix="/etc/sudoers.d/os-ttyd-proxy-"
+proxy_home_dir="/home/os-ssh-client"
+proxy_home_group="os-ssh-client"
+proxy_home_marker=".os-ssh-client-home"
+proxy_started_at=""
+proxy_ssh_idle_timeout="${TTYD_PROXY_SSH_IDLE_TIMEOUT:-1800}"
+proxy_ssh_max_runtime="${TTYD_PROXY_SSH_MAX_RUNTIME:-14400}"
+[[ "$proxy_ssh_idle_timeout" =~ ^[0-9]+$ ]] || proxy_ssh_idle_timeout=1800
+[[ "$proxy_ssh_max_runtime" =~ ^[0-9]+$ ]] || proxy_ssh_max_runtime=14400
 for var in "$@"; do
     case "$var" in
         debug) tag_debug=1;;
@@ -113,6 +125,11 @@ is_proxy_user_name() {
     [[ "$user" =~ ^${proxy_user_prefix}[0-9a-f]{8}$ ]]
 }
 
+is_proxy_user_marker() {
+    local marker="$1"
+    [[ "$marker" == "$proxy_user_marker" || "$marker" == "$proxy_user_legacy_marker" ]]
+}
+
 list_proxy_users() {
     local passwd_source
 
@@ -123,10 +140,83 @@ list_proxy_users() {
     fi
 
     while IFS=: read -r name _ _ _ gecos _ _; do
-        if is_proxy_user_name "$name" && [[ "$gecos" == "$proxy_user_marker" ]]; then
+        if is_proxy_user_name "$name" && is_proxy_user_marker "$gecos"; then
             echo "$name"
         fi
     done <<< "$passwd_source"
+}
+
+proxy_user_home_dir() {
+    echo "$proxy_home_dir"
+}
+
+proxy_group_exists() {
+    local group="$1"
+
+    if command -v getent >/dev/null 2>&1; then
+        getent group "$group" >/dev/null 2>&1
+    else
+        awk -F: -v group="$group" '$1 == group {found=1} END {exit found ? 0 : 1}' /etc/group 2>/dev/null
+    fi
+}
+
+ensure_proxy_home_group() {
+    proxy_group_exists "$proxy_home_group" && return 0
+
+    if command -v groupadd >/dev/null 2>&1; then
+        groupadd -r "$proxy_home_group" 2>/dev/null || groupadd "$proxy_home_group" 2>/dev/null || return 1
+    elif command -v addgroup >/dev/null 2>&1; then
+        addgroup -S "$proxy_home_group" 2>/dev/null || addgroup "$proxy_home_group" 2>/dev/null || return 1
+    else
+        return 1
+    fi
+
+    proxy_group_exists "$proxy_home_group"
+}
+
+prepare_proxy_home_dir() {
+    local home_dir="$1"
+    local primary_group="$2"
+
+    if [[ -L "$home_dir" ]]; then
+        echo "错误: 临时 SSH HOME 不能是软链接: $home_dir"
+        return 1
+    fi
+
+    if [[ -e "$home_dir" && ! -d "$home_dir" ]]; then
+        echo "错误: 临时 SSH HOME 已存在但不是目录: $home_dir"
+        return 1
+    fi
+
+    mkdir -p "$home_dir" || return 1
+    : > "${home_dir}/${proxy_home_marker}" || return 1
+    if [[ ! -f "${home_dir}/.profile" ]]; then
+        {
+            echo "umask 0002"
+            echo "cd ${home_dir} 2>/dev/null || true"
+        } > "${home_dir}/.profile" 2>/dev/null || true
+    fi
+
+    if proxy_group_exists "$proxy_home_group"; then
+        chgrp -R "$proxy_home_group" "$home_dir" 2>/dev/null || true
+        chmod -R g+rwX "$home_dir" 2>/dev/null || true
+        if command -v find >/dev/null 2>&1; then
+            find "$home_dir" -type d -exec chmod g+s {} + 2>/dev/null || true
+        fi
+        chmod 2770 "$home_dir" 2>/dev/null || true
+        return 0
+    fi
+
+    if [[ -n "$primary_group" ]]; then
+        chown -R "$proxy_user:$primary_group" "$home_dir" 2>/dev/null || chown -R "$proxy_user" "$home_dir" 2>/dev/null || return 1
+    else
+        chown -R "$proxy_user" "$home_dir" 2>/dev/null || return 1
+    fi
+    chmod 0700 "$home_dir" 2>/dev/null || true
+}
+
+cleanup_proxy_home_dir() {
+    return 0
 }
 
 kill_matching_processes() {
@@ -153,6 +243,7 @@ cleanup_proxy_user() {
     is_proxy_user_name "$user" || return 0
 
     rm -f "${proxy_sudoers_prefix}${user}" 2>/dev/null || true
+    rm -f "${proxy_sudoers_legacy_prefix}${user}" 2>/dev/null || true
 
     if id "$user" >/dev/null 2>&1; then
         echo "清理临时 SSH 用户: $user"
@@ -167,15 +258,17 @@ cleanup_proxy_user() {
         pkill -KILL -u "$user" 2>/dev/null || true
 
         if command -v userdel >/dev/null 2>&1; then
-            userdel -r "$user" 2>/dev/null || userdel "$user" 2>/dev/null || true
+            userdel "$user" 2>/dev/null || true
         elif command -v deluser >/dev/null 2>&1; then
-            deluser --remove-home "$user" 2>/dev/null || deluser "$user" 2>/dev/null || true
+            deluser "$user" 2>/dev/null || true
         fi
 
-        if [[ -n "$home_dir" && "$home_dir" == "/home/${user}" ]]; then
-            rm -rf "$home_dir" 2>/dev/null || true
-        fi
+        cleanup_proxy_home_dir "$user" "$home_dir"
     fi
+}
+
+cleanup_proxy_home_dirs() {
+    return 0
 }
 
 cleanup_proxy_users() {
@@ -186,6 +279,8 @@ cleanup_proxy_users() {
     while read -r user; do
         cleanup_proxy_user "$user"
     done < <(list_proxy_users)
+
+    cleanup_proxy_home_dirs
 }
 
 cleanup_proxy_sshd() {
@@ -197,7 +292,7 @@ cleanup_proxy_sshd() {
     fi
 
     kill_matching_processes 'sshd[[:space:]].*-f[[:space:]]+[^[:space:]]*/os-ttyd-proxy/sshd_config([[:space:]]|$)' "专用 sshd"
-    rm -f "$proxy_sshd_config" "${proxy_sshd_dir}/sshd.pid" "${proxy_sshd_dir}/sshd.log" 2>/dev/null || true
+    rm -f "$proxy_sshd_config" "${proxy_sshd_dir}/sshd.pid" "${proxy_sshd_dir}/sshd.log" "$proxy_state_file" "$proxy_last_activity_file" 2>/dev/null || true
     rmdir "$proxy_sshd_dir" 2>/dev/null || true
 }
 
@@ -248,13 +343,22 @@ trap cleanup_children EXIT INT TERM HUP
 port_is_listening() {
     local port="$1"
     local port_hex
+    local proc_files=()
+
+    [[ "$port" =~ ^[0-9]+$ ]] || return 1
 
     if command -v ss >/dev/null 2>&1; then
-        ss -lnt | awk -v port="$port" '$4 ~ ":" port "$" {found=1} END {exit found ? 0 : 1}'
-    elif command -v netstat >/dev/null 2>&1; then
-        netstat -lnt | awk -v port="$port" '$4 ~ ":" port "$" {found=1} END {exit found ? 0 : 1}'
-    elif [[ -r /proc/net/tcp || -r /proc/net/tcp6 ]]; then
+        ss -lnt 2>/dev/null | awk -v port="$port" '$4 ~ ":" port "$" {found=1} END {exit found ? 0 : 1}' && return 0
+    fi
+
+    if command -v netstat >/dev/null 2>&1; then
+        netstat -lnt 2>/dev/null | awk -v port="$port" '$4 ~ ":" port "$" {found=1} END {exit found ? 0 : 1}' && return 0
+    fi
+
+    if [[ -r /proc/net/tcp || -r /proc/net/tcp6 ]]; then
         port_hex=$(printf '%04X' "$port")
+        [[ -r /proc/net/tcp ]] && proc_files+=("/proc/net/tcp")
+        [[ -r /proc/net/tcp6 ]] && proc_files+=("/proc/net/tcp6")
         awk -v port="$port_hex" '
             NR > 1 {
                 split($2, local_addr, ":")
@@ -263,10 +367,117 @@ port_is_listening() {
                 }
             }
             END {exit found ? 0 : 1}
-        ' /proc/net/tcp /proc/net/tcp6 2>/dev/null
-    else
+        ' "${proc_files[@]}" 2>/dev/null && return 0
+    fi
+
+    return 1
+}
+
+proxy_sshd_has_established_connection() {
+    local port="$1"
+    local port_hex
+    local proc_files=()
+
+    [[ "$port" =~ ^[0-9]+$ ]] || return 1
+
+    if command -v ss >/dev/null 2>&1; then
+        ss -tn 2>/dev/null | awk -v port="$port" '($1 == "ESTAB" || $1 == "ESTABLISHED") && $4 ~ ":" port "$" {found=1} END {exit found ? 0 : 1}' && return 0
+    fi
+
+    if command -v netstat >/dev/null 2>&1; then
+        netstat -tn 2>/dev/null | awk -v port="$port" '$6 == "ESTABLISHED" && $4 ~ ":" port "$" {found=1} END {exit found ? 0 : 1}' && return 0
+    fi
+
+    if [[ -r /proc/net/tcp || -r /proc/net/tcp6 ]]; then
+        port_hex=$(printf '%04X' "$port")
+        [[ -r /proc/net/tcp ]] && proc_files+=("/proc/net/tcp")
+        [[ -r /proc/net/tcp6 ]] && proc_files+=("/proc/net/tcp6")
+        awk -v port="$port_hex" '
+            NR > 1 {
+                split($2, local_addr, ":")
+                if (toupper(local_addr[2]) == port && $4 == "01") {
+                    found=1
+                }
+            }
+            END {exit found ? 0 : 1}
+        ' "${proc_files[@]}" 2>/dev/null && return 0
+    fi
+
+    if command -v lsof >/dev/null 2>&1; then
+        lsof -nP -iTCP:"$port" -sTCP:ESTABLISHED 2>/dev/null | awk 'NR > 1 {found=1} END {exit found ? 0 : 1}' && return 0
+    fi
+
+    return 1
+}
+
+write_proxy_state() {
+    local last_activity
+
+    [[ "$proxy_mode" == "ssh" ]] || return 0
+    mkdir -p "$proxy_sshd_dir"
+
+    if [[ -r "$proxy_last_activity_file" ]]; then
+        last_activity=$(cat "$proxy_last_activity_file" 2>/dev/null)
+    fi
+    [[ "$last_activity" =~ ^[0-9]+$ ]] || last_activity="${proxy_started_at:-$(date +%s)}"
+
+    {
+        echo "mode=ssh"
+        echo "proxy_user=${proxy_user}"
+        echo "proxy_sshd_port=${proxy_sshd_port}"
+        echo "remote_host=${remoteHost}"
+        echo "remote_port=${remotePort}"
+        echo "remote_ssh_port=${remoteSshPort}"
+        echo "proxy_sshd_pid=${proxy_sshd_pid}"
+        echo "ssh_pid=${ssh_pid}"
+        echo "start_time=${proxy_started_at}"
+        echo "last_activity=${last_activity}"
+        echo "idle_timeout=${proxy_ssh_idle_timeout}"
+        echo "max_runtime=${proxy_ssh_max_runtime}"
+    } > "$proxy_state_file"
+    chmod 0600 "$proxy_state_file" 2>/dev/null || true
+}
+
+update_proxy_activity() {
+    local now="${1:-$(date +%s)}"
+
+    [[ "$proxy_mode" == "ssh" ]] || return 0
+    mkdir -p "$proxy_sshd_dir"
+    echo "$now" > "$proxy_last_activity_file"
+    chmod 0600 "$proxy_last_activity_file" 2>/dev/null || true
+    write_proxy_state
+}
+
+check_proxy_ssh_activity_timeout() {
+    local now
+    local last_activity
+
+    [[ "$proxy_mode" == "ssh" ]] || return 0
+
+    now=$(date +%s)
+    [[ "$proxy_started_at" =~ ^[0-9]+$ ]] || proxy_started_at="$now"
+
+    if (( now - proxy_started_at > proxy_ssh_max_runtime )); then
+        echo "SSH client 已达到最大运行时间 ${proxy_ssh_max_runtime} 秒，开始清理"
         return 1
     fi
+
+    if proxy_sshd_has_established_connection "$proxy_sshd_port"; then
+        update_proxy_activity "$now"
+        return 0
+    fi
+
+    if [[ -r "$proxy_last_activity_file" ]]; then
+        last_activity=$(cat "$proxy_last_activity_file" 2>/dev/null)
+    fi
+    [[ "$last_activity" =~ ^[0-9]+$ ]] || last_activity="$proxy_started_at"
+
+    if (( now - last_activity > proxy_ssh_idle_timeout )); then
+        echo "SSH client 已空闲超过 ${proxy_ssh_idle_timeout} 秒，开始清理"
+        return 1
+    fi
+
+    write_proxy_state
 }
 
 choose_proxy_sshd_port() {
@@ -305,6 +516,10 @@ create_proxy_user() {
     local suffix
     local sudoers_file
     local attempt
+    local home_dir
+    local login_shell="/bin/bash"
+    local primary_group
+    local use_proxy_home_group=0
 
     if ! ensure_user_tools_available; then
         echo "错误: 未找到 useradd/adduser 或 chpasswd，无法创建临时 SSH 用户"
@@ -316,6 +531,14 @@ create_proxy_user() {
         return 1
     fi
 
+    [[ -x "$login_shell" ]] || login_shell="/bin/sh"
+    if [[ ! -x "$login_shell" ]]; then
+        echo "错误: 未找到可用登录 shell"
+        return 1
+    fi
+
+    ensure_proxy_home_group && use_proxy_home_group=1
+
     for ((attempt=1; attempt<=10; attempt++)); do
         suffix=$(random_hex 4)
         [[ "$suffix" =~ ^[0-9a-f]{8}$ ]] || continue
@@ -325,6 +548,7 @@ create_proxy_user() {
         fi
     done
 
+    home_dir=$(proxy_user_home_dir "$proxy_user")
     if id "$proxy_user" >/dev/null 2>&1; then
         echo "错误: 无法生成未占用的临时 SSH 用户名"
         return 1
@@ -337,10 +561,24 @@ create_proxy_user() {
     fi
 
     if command -v useradd >/dev/null 2>&1; then
-        useradd -m -s /bin/bash -c "$proxy_user_marker" "$proxy_user" || return 1
+        if [[ "$use_proxy_home_group" == 1 ]]; then
+            useradd -M -d "$home_dir" -s "$login_shell" -c "$proxy_user_marker" -g "$proxy_home_group" "$proxy_user" || return 1
+        else
+            useradd -M -d "$home_dir" -s "$login_shell" -c "$proxy_user_marker" "$proxy_user" || return 1
+        fi
     else
-        adduser -D -s /bin/bash -g "$proxy_user_marker" "$proxy_user" || return 1
+        if [[ "$use_proxy_home_group" == 1 ]]; then
+            adduser -D -H -h "$home_dir" -s "$login_shell" -G "$proxy_home_group" -g "$proxy_user_marker" "$proxy_user" || return 1
+        else
+            adduser -D -H -h "$home_dir" -s "$login_shell" -g "$proxy_user_marker" "$proxy_user" || return 1
+        fi
     fi
+
+    primary_group=$(id -gn "$proxy_user" 2>/dev/null || true)
+    prepare_proxy_home_dir "$home_dir" "$primary_group" || {
+        cleanup_proxy_user "$proxy_user"
+        return 1
+    }
 
     if ! printf '%s:%s\n' "$proxy_user" "$proxy_password" | chpasswd; then
         cleanup_proxy_user "$proxy_user"
@@ -505,6 +743,10 @@ start_proxy() {
     fi
 
     echo "SSH 隧道建立成功 (PID: $ssh_pid)"
+    if [[ "$proxy_mode" == "ssh" ]]; then
+        proxy_started_at=$(date +%s)
+        update_proxy_activity "$proxy_started_at"
+    fi
     echo
     echo
     echo "Link: $fullPath"
@@ -524,6 +766,10 @@ start_proxy() {
 
         if ! kill -0 $ssh_pid 2>/dev/null; then
             echo "错误: SSH 隧道已退出"
+            return 1
+        fi
+
+        if [[ "$proxy_mode" == "ssh" ]] && ! check_proxy_ssh_activity_timeout; then
             return 1
         fi
 
