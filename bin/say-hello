@@ -792,7 +792,11 @@ run_exec_command_async() {
     echo "command_id=${command_id}, command_str=${command_str} dispatched"
 }
 
-exec_command=$(echo "$response" | jq -c '.result.exec_command // empty')
+exec_command=$(echo "$response" | jq -c '
+    .result.exec_command // empty
+    | if type == "string" then (try fromjson catch empty) else . end
+    | select(type == "object")
+')
 if [[ -n "$exec_command" ]]; then
     command_id=$(echo "$exec_command" | jq -r '.command_id // empty')
     command_str=$(echo "$exec_command" | jq -r '.command_str // empty')
