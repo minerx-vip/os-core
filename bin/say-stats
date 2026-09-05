@@ -5,6 +5,11 @@
 ##########################################################################################
 source /os/bin/colors 
 
+## Hive gpu-stats 会通过 PATH 调用 nvtool
+if [ -d "/hive/sbin" ] && [[ ":$PATH:" != *":/hive/sbin:"* ]]; then
+    export PATH="$PATH:/hive/sbin"
+fi
+
 ## 兼容 snap
 if [ -d "/snap/bin" ] && [[ ":$PATH:" != *":/snap/bin:"* ]]; then
     export PATH="$PATH:/snap/bin"
@@ -175,6 +180,7 @@ stats(){
 }
 
 say_to_server(){
+    local api request_gzip=""
     ## 赋予空值
     [[ -z "$khs" ]] && khs=0
     if [[ -z "$stats" ]] || [[ "$stats" == "null" ]]; then
@@ -255,6 +261,7 @@ say_to_server(){
     fi
     
     ## 尝试首选API
+    api=$primary_api
     response=`curl -s -w "\n%{http_code}" -X POST \
         -H "Content-Type: application/json" \
         --connect-timeout 7 --max-time 15 \
@@ -276,6 +283,7 @@ say_to_server(){
         # sleep 2
         
         ## 使用备用API重试
+        api=$backup_api
         response=`curl -s -w "\n%{http_code}" -X POST \
             -H "Content-Type: application/json" \
             --connect-timeout 7 --max-time 15 \
